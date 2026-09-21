@@ -44,10 +44,26 @@ create table if not exists public.tratamento_eventos (
   criado_em timestamptz not null default now()
 );
 
+create table if not exists public.observacao_revisoes (
+  id_guia text not null references public.guias(id_guia),
+  chave text not null,
+  status text not null check (status in ('ABERTA', 'RESOLVIDA')),
+  origem text not null check (origem in ('groq', 'nao_lida')),
+  classe text not null check (classe in ('sinal', 'revisar', 'nao_lida')),
+  sinais jsonb not null default '[]'::jsonb,
+  motivo text,
+  criada_em timestamptz not null default now(),
+  resolvida_em timestamptz,
+  resolvida_por text,
+  comentario text,
+  primary key (id_guia, chave)
+);
+
 create index if not exists verificacoes_guia_data_idx on public.verificacoes (id_guia, criada_em desc);
 create index if not exists verificacoes_status_idx on public.verificacoes (status);
 create index if not exists tratamento_eventos_guia_data_idx on public.tratamento_eventos (id_guia, criado_em desc);
 create index if not exists tratamento_eventos_status_idx on public.tratamento_eventos (status_novo, criado_em desc);
+create index if not exists observacao_revisoes_status_idx on public.observacao_revisoes (status, criada_em desc);
 
 create or replace view public.ultima_verificacao with (security_invoker = true) as
 select distinct on (id_guia) id_guia, carga_id, status, resultado, valor, criada_em
@@ -117,10 +133,12 @@ alter table public.guias enable row level security;
 alter table public.verificacoes enable row level security;
 alter table public.tratamentos enable row level security;
 alter table public.tratamento_eventos enable row level security;
-revoke all on public.cargas, public.guias, public.verificacoes, public.tratamentos, public.tratamento_eventos, public.ultima_verificacao from anon, authenticated;
-grant select on public.cargas, public.guias, public.verificacoes, public.tratamentos, public.tratamento_eventos, public.ultima_verificacao to service_role;
+alter table public.observacao_revisoes enable row level security;
+revoke all on public.cargas, public.guias, public.verificacoes, public.tratamentos, public.tratamento_eventos, public.observacao_revisoes, public.ultima_verificacao from anon, authenticated;
+grant select on public.cargas, public.guias, public.verificacoes, public.tratamentos, public.tratamento_eventos, public.observacao_revisoes, public.ultima_verificacao to service_role;
 grant insert, update on public.tratamentos to service_role;
 grant insert on public.tratamento_eventos to service_role;
+grant insert, update on public.observacao_revisoes to service_role;
 revoke all on function public.registrar_carga(text, text, jsonb, jsonb) from public, anon, authenticated;
 grant execute on function public.registrar_carga(text, text, jsonb, jsonb) to service_role;
 revoke execute on function public.rls_auto_enable() from public, anon, authenticated;

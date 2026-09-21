@@ -52,6 +52,7 @@ export async function saveLoad(fileName: string, fileHash: string, guides: Guia[
   if (database) {
     const result = await database.rpc("registrar_carga", { p_nome: fileName, p_hash: fileHash, p_guias: guides, p_verificacoes: results });
     if (result.error || !result.data) throw new Error("BANCO_INDISPONIVEL");
+    await persistObservationRevisions(database, results);
     return { loadId: result.data.carga_id as string, jaExistia: result.data.ja_existia as boolean };
   }
   const previousLoad = store.loads.find((load) => load.fileHash === fileHash);
@@ -84,6 +85,9 @@ export async function latestResults(): Promise<VerificationRecord[]> {
     for (const row of guides) store.guides.set(row.id_guia, row.dados as Guia);
     store.treatments.clear();
     for (const row of treatments) store.treatments.set(row.id_guia, { id_guia: row.id_guia, status: row.situacao, markedBy: row.marcado_por, markedAt: row.marcada_em });
+    const revisions = await readPages((from, to) => database.from("observacao_revisoes").select("id_guia,chave,status,origem,classe,sinais,motivo,criada_em,resolvida_em,resolvida_por,comentario").order("criada_em").range(from, to));
+    store.observationRevisions.clear();
+    for (const row of revisions) store.observationRevisions.set(`${row.id_guia}:${row.chave}`, revisionFromRow(row));
     const events = await readPages((from, to) => database.from("tratamento_eventos").select("id_guia,carga_id,status_tecnico,status_anterior,status_novo,evento,por_quem,comentario,criado_em").order("criado_em").range(from, to));
     store.treatmentEvents.length = 0;
     for (const row of events) store.treatmentEvents.push({ id_guia: row.id_guia, loadId: row.carga_id, technicalStatus: row.status_tecnico, previousStatus: row.status_anterior, newStatus: row.status_novo, event: row.evento, by: row.por_quem, comment: row.comentario ?? undefined, createdAt: row.criado_em });
@@ -142,8 +146,33 @@ function saveObservationRevision(result: Resultado, createdAt: string) {
   store.observationRevisions.set(key, { id_guia: result.id_guia, chave: observation.chave, status: "ABERTA", origem: observation.origem, classe, sinais: observation.sinais, ...(observation.motivo ? { motivo: observation.motivo } : {}), createdAt, ...(previous?.comment ? { comment: previous.comment } : {}) });
 }
 
+function revisionFromRow(row: { id_guia: string; chave: string; status: ObservationRevision["status"]; origem: ObservationRevision["origem"]; classe: ObservationRevision["classe"]; sinais: unknown; motivo?: string | null; criada_em: string; resolvida_em?: string | null; resolvida_por?: string | null; comentario?: string | null }): ObservationRevision {
+  return { id_guia: row.id_guia, chave: row.chave, status: row.status, origem: row.origem, classe: row.classe, sinais: Array.isArray(row.sinais) ? row.sinais as string[] : [], ...(row.motivo ? { motivo: row.motivo } : {}), createdAt: row.criada_em, ...(row.resolvida_em ? { resolvedAt: row.resolvida_em } : {}), ...(row.resolvida_por ? { resolvedBy: row.resolvida_por } : {}), ...(row.comentario ? { comment: row.comentario } : {}) };
+}
+
+async function persistObservationRevisions(database: NonNullable<ReturnType<typeof supabase>>, results: Resultado[]) {
+  const candidates = results.filter((result) => result.observacao?.origem === "groq" || result.observacao?.origem === "nao_lida").filter((result) => result.observacao?.chave).map((result) => ({ id_guia: result.id_guia, chave: result.observacao!.chave!, status: "ABERTA", origem: result.observacao!.origem === "groq" ? "groq" : "nao_lida", classe: result.observacao!.classe === "revisar" || result.observacao!.classe === "sinal" ? result.observacao!.classe : "nao_lida", sinais: result.observacao!.sinais, motivo: result.observacao!.motivo ?? null }));
+  if (!candidates.length) return;
+  const existing = await database.from("observacao_revisoes").select("id_guia,chave,status").in("id_guia", candidates.map((candidate) => candidate.id_guia));
+  if (existing.error) throw new Error("BANCO_INDISPONIVEL");
+  const resolved = new Set((existing.data ?? []).filter((row) => row.status === "RESOLVIDA").map((row) => `${row.id_guia}:${row.chave}`));
+  const pending = candidates.filter((candidate) => !resolved.has(`${candidate.id_guia}:${candidate.chave}`));
+  if (!pending.length) return;
+  const saved = await database.from("observacao_revisoes").upsert(pending, { onConflict: "id_guia,chave" });
+  if (saved.error) throw new Error("BANCO_INDISPONIVEL");
+}
+
 export function listObservationRevisions(): ObservationRevision[] {
   return [...store.observationRevisions.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export async function listObservationRevisionsAsync(): Promise<ObservationRevision[]> {
+  const database = supabase();
+  if (!database) return listObservationRevisions();
+  const rows = await readPages((from, to) => database.from("observacao_revisoes").select("id_guia,chave,status,origem,classe,sinais,motivo,criada_em,resolvida_em,resolvida_por,comentario").order("criada_em").range(from, to));
+  store.observationRevisions.clear();
+  for (const row of rows) store.observationRevisions.set(`${row.id_guia}:${row.chave}`, revisionFromRow(row));
+  return listObservationRevisions();
 }
 
 export function resolveObservationRevision(id_guia: string, chave: string, resolvedBy = "Equipe", comment?: string): ObservationRevision | undefined {
@@ -154,6 +183,19 @@ export function resolveObservationRevision(id_guia: string, chave: string, resol
   store.observationRevisions.set(key, resolved);
   persistLocal();
   return resolved;
+}
+
+export async function resolveObservationRevisionAsync(id_guia: string, chave: string, resolvedBy = "Equipe", comment?: string): Promise<ObservationRevision | undefined> {
+  const database = supabase();
+  if (!database) return resolveObservationRevision(id_guia, chave, resolvedBy, comment);
+  const current = await database.from("observacao_revisoes").select("id_guia,chave,status,origem,classe,sinais,motivo,criada_em,resolvida_em,resolvida_por,comentario").eq("id_guia", id_guia).eq("chave", chave).maybeSingle();
+  if (current.error || !current.data) return undefined;
+  const resolvedAt = new Date().toISOString();
+  const saved = await database.from("observacao_revisoes").update({ status: "RESOLVIDA", resolvida_em: resolvedAt, resolvida_por: resolvedBy, ...(comment?.trim() ? { comentario: comment.trim().slice(0, 240) } : {}) }).eq("id_guia", id_guia).eq("chave", chave).select("id_guia,chave,status,origem,classe,sinais,motivo,criada_em,resolvida_em,resolvida_por,comentario").single();
+  if (saved.error || !saved.data) throw new Error("BANCO_INDISPONIVEL");
+  const revision = revisionFromRow(saved.data);
+  store.observationRevisions.set(`${id_guia}:${chave}`, revision);
+  return revision;
 }
 
 export async function markTreatmentAsync(id_guia: string, markedBy = "Equipe"): Promise<Treatment | undefined> {
