@@ -130,7 +130,8 @@ function ensureSpace(layout: Layout, pdf: PDFDocument, fonts: Fonts, report: Rel
   drawFooter(layout.page, fonts, report, geradoEm, layout.pageNumber);
   const next = createPage(pdf, fonts, report, geradoEm, layout.pageNumber + 1);
   layout.page = next.page;
-  layout.y = next.y;
+  // Keep the first content block below the repeated header on continuation pages.
+  layout.y = next.y - 90;
   layout.pageNumber = next.pageNumber;
   return layout.y;
 }
