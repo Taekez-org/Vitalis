@@ -92,7 +92,11 @@ export async function latestResults(): Promise<VerificationRecord[]> {
     store.loads.length = 0;
     for (const row of loads.data ?? []) store.loads.push({ id: row.id, fileName: row.nome_arquivo, count: row.quantidade_guias, createdAt: row.criada_em });
     const latest = new Map<string, VerificationRecord>();
-    for (const row of history) latest.set(row.id_guia, { ...(row.resultado as Resultado), createdAt: row.criada_em, loadId: row.carga_id });
+    for (const row of history) {
+      const candidate = { ...(row.resultado as Resultado), status: row.status as Resultado["status"], createdAt: row.criada_em, loadId: row.carga_id };
+      const current = latest.get(row.id_guia);
+      if (!current || current.createdAt < candidate.createdAt || (current.createdAt === candidate.createdAt && current.loadId < candidate.loadId)) latest.set(row.id_guia, candidate);
+    }
     return [...latest.values()];
   }
   const latest = new Map<string, VerificationRecord>();
