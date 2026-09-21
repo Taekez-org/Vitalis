@@ -7,7 +7,7 @@ const actions: Record<string, { tipo: Motivo["tipo"]; responsavel: Motivo["respo
   CONVENIO_DESCONHECIDO: { tipo: "alguem_decide", responsavel: "financeiro", acao: "Conferir o convenio lancado ou cadastrar a regra." },
   PROCEDIMENTO_DESCONHECIDO: { tipo: "alguem_decide", responsavel: "financeiro", acao: "Conferir o codigo do procedimento ou cadastrar na tabela." },
   CAMPO_OBRIGATORIO_VAZIO: { tipo: "corrigir_dado", responsavel: "recepcao", acao: "Preencher o(s) campo(s) exigido(s) pelo convenio." },
-  AUT_VENCIDA: { tipo: "alguem_decide", responsavel: "recepcao", acao: "Nao atender nem faturar pelo convenio com autorizacao vencida. Informar o paciente, obter nova autorizacao valida ou registrar o aceite da cobranca particular." },
+  AUT_VENCIDA: { tipo: "alguem_decide", responsavel: "recepcao", acao: "Nao atender nem faturar pelo convenio com autorizacao vencida. Aguardar autorizacao valida do convenio, remarcar o atendimento ou oferecer atendimento particular com aceite do paciente." },
   VALIDADE_ACIMA_DO_MAXIMO: { tipo: "corrigir_dado", responsavel: "recepcao", acao: "Corrigir a validade conforme o limite do convenio; nao enviar como convenio enquanto estiver irregular." },
   SESSAO_ACIMA_DO_LIMITE: { tipo: "corrigir_dado", responsavel: "recepcao", acao: "Solicitar nova autorizacao." },
   LIMITE_DIVERGENTE: { tipo: "alguem_decide", responsavel: "financeiro", acao: "Conferir com o convenio o limite de sessoes informado." },

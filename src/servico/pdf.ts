@@ -23,7 +23,7 @@ export async function gerarRelatorioPdf(report: RelatorioPeriodo, geradoEm: stri
   const pdf = await PDFDocument.create();
   const fonts: Fonts = { regular: await pdf.embedFont(StandardFonts.Helvetica), bold: await pdf.embedFont(StandardFonts.HelveticaBold) };
   let layout = createPage(pdf, fonts, report, geradoEm, 1);
-  layout.y = 322;
+  layout.y = 620;
 
   const money = (value: number) => `R$ ${value.toFixed(2).replace(".", ",")}`;
   drawMetricCard(layout.page, fonts, 36, layout.y, 251, 70, "Guias verificadas", String(report.verificadas), "Conferidas no periodo", colors.primary, "check");
@@ -38,7 +38,7 @@ export async function gerarRelatorioPdf(report: RelatorioPeriodo, geradoEm: stri
   drawCallout(layout.page, fonts, 36, layout.y, 523, 54, report.pendentes ? colors.riskSoft : colors.primarySoft, report.pendentes ? colors.risk : colors.primary, report.pendentes ? `Ha ${report.pendentes} guia(s) que nao devem seguir para o convenio.` : "Nenhuma pendencia no fechamento deste periodo.", report.pendentes ? "Priorize a correcao antes do envio." : "A operacao esta liberada para o periodo.");
   layout.y -= 72;
 
-  layout.y = ensureSpace(layout, pdf, fonts, report, geradoEm, 210);
+  layout.y = ensureSpace(layout, pdf, fonts, report, geradoEm, 330);
   drawSectionHeading(layout.page, fonts, layout.y, "Onde esta o risco", "Distribuicao das guias pendentes");
   layout.y -= 30;
   const columns = [
@@ -111,7 +111,6 @@ function drawBarList(page: PDFPage, fonts: Fonts, x: number, y: number, width: n
 }
 
 function drawIcon(page: PDFPage, fonts: Fonts, x: number, y: number, color: ReturnType<typeof rgb>, icon: "check" | "alert" | "money" | "shield") {
-  void fonts;
   const paths = {
     check: "M9 12l2 2 4-4 M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z",
     alert: "M10.3 2.9 1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0z M12 9v4 M12 17h.01",
