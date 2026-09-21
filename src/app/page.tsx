@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, CheckCircle2, FileUp, ShieldAlert } from "lucide-react";
+import { CheckCircle2, FileUp, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { rotuloMotivo } from "@/servico/rotulos";
@@ -29,15 +28,9 @@ export default function GuidesPage() {
     setMessage(data.ja_carregado ? "Este arquivo já foi carregado. Nada mudou." : `${data.resumo.verificadas} verificadas, ${data.resumo.ok} OK, ${data.resumo.pendentes} pendentes, R$ ${data.resumo.valor_em_risco.toFixed(2).replace(".", ",")}`);
   }
 
-  async function demo() {
-    const response = await fetch("/api/demo");
-    const blob = await response.blob();
-    await upload(new File([blob], "guias-agosto.csv", { type: "text/csv" }), "2026-08-31");
-  }
-
   return <section className="space-y-7">
     <PageHeader eyebrow="Entrada operacional" title="Guias" description="Carregue o lote exportado do sistema de gestão e descubra o que precisa ser corrigido antes do faturamento." />
-    <Card className="overflow-hidden border-primary/20 shadow-card"><CardHeader className="bg-primary/[0.04] pb-4"><div className="flex items-start gap-3"><div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground"><FileUp className="size-5" /></div><div><CardTitle className="text-lg">Nova carga de guias</CardTitle><p className="mt-1 text-sm leading-6 text-muted-foreground">Use o CSV exportado pela gestão. A ferramenta confere o lote e a equipe corrige os dados na origem.</p></div></div></CardHeader><CardContent className="grid gap-4 p-6 sm:grid-cols-[1fr_auto] sm:items-end"><div className="grid gap-2"><Label htmlFor="csv">Arquivo CSV</Label><Input id="csv" className="h-11 bg-background" type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} /><p className="text-xs text-muted-foreground">A mesma carga não é processada duas vezes.</p></div><Button variant="outline" className="h-11" onClick={() => void demo()}>Carregar demonstração <ArrowRight /></Button></CardContent></Card>
+    <Card className="overflow-hidden border-primary/20 shadow-card"><CardHeader className="bg-primary/[0.04] pb-4"><div className="flex items-start gap-3"><div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground"><FileUp className="size-5" /></div><div><CardTitle className="text-lg">Nova carga de guias</CardTitle><p className="mt-1 text-sm leading-6 text-muted-foreground">Use o CSV exportado pela gestão. A ferramenta confere o lote e a equipe corrige os dados na origem.</p></div></div></CardHeader><CardContent className="p-6"><div className="grid max-w-2xl gap-2"><Label htmlFor="csv">Arquivo CSV</Label><Input id="csv" className="h-11 bg-background" type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} /><p className="text-xs text-muted-foreground">A mesma carga não é processada duas vezes.</p></div></CardContent></Card>
     <p className={`min-h-5 text-sm ${message.startsWith("Erro") ? "text-risk" : "text-muted-foreground"}`} role="status">{message}</p>
     {summary && <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><SummaryCard icon={<FileUp />} label="Verificadas" value={String(summary.verificadas)} /><SummaryCard icon={<CheckCircle2 />} label="Podem seguir" value={String(summary.ok)} tone="success" /><SummaryCard icon={<ShieldAlert />} label="Precisam de ação" value={String(summary.pendentes)} tone="risk" /><SummaryCard label="Valor em risco" value={`R$ ${summary.valor_em_risco.toFixed(2).replace(".", ",")}`} tone="warning" /></div>}
     {results.length > 0 && <Card className="shadow-card"><CardHeader><CardTitle>Resultado desta carga</CardTitle><p className="text-sm text-muted-foreground">Abra Pendências para orientar a correção e acompanhar a fila.</p></CardHeader><CardContent><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Guia</TableHead><TableHead>Status</TableHead><TableHead>Motivos</TableHead><TableHead>Valor</TableHead></TableRow></TableHeader><TableBody>{results.map((result) => <TableRow key={result.id_guia}><TableCell className="font-medium">{result.id_guia}</TableCell><TableCell><Badge variant={result.status === "OK" ? "outline" : "destructive"}>{result.status === "OK" ? "Pode seguir" : "Precisa de ação"}</Badge></TableCell><TableCell className="max-w-xl">{result.motivos.map((reason) => rotuloMotivo(reason.codigo)).join(", ") || "Nenhum problema"}</TableCell><TableCell>R$ {(result.valor ?? 0).toFixed(2).replace(".", ",")}</TableCell></TableRow>)}</TableBody></Table></div></CardContent></Card>}
