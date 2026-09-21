@@ -1,4 +1,4 @@
-import { geminiConfig, groqConfig, leitorIaLigado, openRouterConfig } from "./config";
+import { geminiConfig, geminiModels, groqConfig, leitorIaLigado, openRouterConfig } from "./config";
 import { mascararObservacao } from "./seguranca";
 import { observationPromptVersion, observationSystemPrompt, userPrompt } from "./prompt";
 import { parseObservationReading, type ObservationContext, type ObservationReading, type ObservationSource } from "./contrato";
@@ -51,13 +51,15 @@ export class GroqObservationReader implements ObservationReader {
 }
 
 export class GeminiObservationReader implements ObservationReader {
+  constructor(private readonly model?: string) {}
+
   async read(observation: string, context: ObservationContext): Promise<ObservationReading> {
     const config = geminiConfig();
     if (!config) throw new Error("GEMINI_CONFIGURACAO_AUSENTE");
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${this.model ?? config.model}:generateContent`, {
         method: "POST",
         signal: controller.signal,
         headers: { "Content-Type": "application/json", "X-goog-api-key": config.apiKey },
@@ -112,8 +114,9 @@ export async function readObservation(observation: string, context: ObservationC
   if (!leitorIaLigado()) return { source: "desligada", reason: "LEITOR_IA_OFF", promptVersion: observationPromptVersion };
   try {
     if (reader) return { source: "groq", reading: await reader.read(observation, context), promptVersion: observationPromptVersion, model: "fake" };
+    const gemini = geminiModels();
     const providers = [
-      geminiConfig() ? { reader: new GeminiObservationReader(), model: geminiConfig()!.model } : null,
+      ...(gemini?.models.map((model) => ({ reader: new GeminiObservationReader(model), model })) ?? []),
       openRouterConfig() ? { reader: new OpenRouterObservationReader(), model: openRouterConfig()!.model } : null,
       groqConfig() ? { reader: new GroqObservationReader(), model: groqConfig()!.model } : null,
     ].filter((provider): provider is { reader: ObservationReader; model: string } => Boolean(provider));
