@@ -23,20 +23,28 @@ export default function PendingPage() {
   const [situacao, setSituacao] = useState("ABERTA");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [frescor, setFrescor] = useState<{ dia_ultima_carga: string | null; dias_uteis_desde_ultima_carga: number | null; defasado: boolean | null } | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
+    setLoading(true);
     const params = new URLSearchParams();
     if (search) params.set("busca", search);
     if (unidade) params.set("unidade", unidade);
     if (responsavel) params.set("responsavel", responsavel);
     if (situacao !== "TODAS") params.set("situacao", situacao);
-    const response = await fetch(`/api/pendencias?${params}`);
-    const data = await response.json() as { pendencias: Pending[]; frescor?: { dia_ultima_carga: string | null; dias_uteis_desde_ultima_carga: number | null; defasado: boolean | null } };
-    setItems(data.pendencias);
-    setFrescor(data.frescor ?? null);
+    params.set("ts", String(Date.now()));
+    try {
+      const response = await fetch(`/api/pendencias?${params}`, { cache: "no-store" });
+      const data = await response.json() as { pendencias?: Pending[]; frescor?: { dia_ultima_carga: string | null; dias_uteis_desde_ultima_carga: number | null; defasado: boolean | null } };
+      if (!response.ok || !data.pendencias) return;
+      setItems(data.pendencias);
+      setFrescor(data.frescor ?? null);
+    } finally {
+      setLoading(false);
+    }
   }, [search, unidade, responsavel, situacao]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); const timer = window.setInterval(() => void load(), 15000); return () => window.clearInterval(timer); }, [load]);
 
   async function mark(id: string) {
     await fetch(`/api/pendencias/${encodeURIComponent(id)}`, { method: "POST" });
@@ -50,7 +58,7 @@ export default function PendingPage() {
   if (situacao !== "TODAS") exportParams.set("situacao", situacao);
 
    return <section className="space-y-7">
-     <PageHeader eyebrow="Trabalho da recepção" title="Pendências" description="Corrija na origem. Depois carregue um novo CSV para confirmar." actions={<Button variant="outline" onClick={() => void download(`/api/pendencias/csv?${exportParams.toString()}`, "pendencias-vitalis.csv")}>Baixar lista</Button>} />
+     <PageHeader eyebrow="Trabalho da recepção" title="Pendências" description="Corrija na origem. Depois carregue um novo CSV para confirmar." actions={<div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => void load()} disabled={loading}>{loading ? "Atualizando..." : "Atualizar"}</Button><Button variant="outline" onClick={() => void download(`/api/pendencias/csv?${exportParams.toString()}`, "pendencias-vitalis.csv")}>Baixar lista</Button></div>} />
      <FreshnessNotice data={frescor} />
       <Card className="shadow-card"><CardHeader><CardTitle className="text-base">Encontre o que precisa de ação</CardTitle><p className="text-sm text-muted-foreground">Use os filtros para entregar a fila certa para cada pessoa.</p></CardHeader><CardContent className="flex flex-wrap items-end gap-4"><div className="grid min-w-52 gap-2"><Label htmlFor="busca">Número da guia</Label><Input id="busca" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ex.: G-2608-0030" /></div><div className="grid gap-2"><Label htmlFor="unidade">Unidade</Label><select id="unidade" className="h-10 rounded-lg border bg-background px-3 text-sm" value={unidade} onChange={(event) => setUnidade(event.target.value)}><option value="">Todas</option><option>Centro</option><option>Norte</option><option>Sul</option></select></div><div className="grid gap-2"><Label htmlFor="responsavel">Responsável</Label><select id="responsavel" className="h-10 rounded-lg border bg-background px-3 text-sm" value={responsavel} onChange={(event) => setResponsavel(event.target.value)}><option value="">Todos</option><option value="recepcao">Recepção</option><option value="financeiro">Financeiro</option><option value="gestao">Gestão</option></select></div><div className="grid gap-2"><Label htmlFor="situacao">Situação</Label><select id="situacao" className="h-10 rounded-lg border bg-background px-3 text-sm" value={situacao} onChange={(event) => setSituacao(event.target.value)}><option value="ABERTA">A fazer</option><option value="AGUARDANDO_REVERIFICACAO">Aguardando reverificação</option><option value="TODAS">Todas</option></select></div><Button variant="ghost" onClick={() => { setSearch(""); setUnidade(""); setResponsavel(""); setSituacao("ABERTA"); }}>Limpar filtros</Button></CardContent></Card>
      <Card className="shadow-card"><CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between"><div><CardTitle>{items.length} {items.length === 1 ? "guia precisa de ação" : "guias precisam de ação"}</CardTitle><p className="mt-1 text-sm text-muted-foreground">Clique em uma linha para ver detalhes e orientar a correção.</p></div><span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Fila operacional</span></CardHeader><CardContent><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Guia</TableHead><TableHead>O que fazer</TableHead><TableHead>Quem resolve</TableHead><TableHead>Situação</TableHead><TableHead className="w-28">Ação</TableHead></TableRow></TableHeader><TableBody>{items.map((item) => <PendingRow key={item.id_guia} item={item} isOpen={expanded === item.id_guia} onToggle={() => setExpanded(expanded === item.id_guia ? null : item.id_guia)} onMark={() => void mark(item.id_guia)} />)}</TableBody></Table></div></CardContent></Card>
