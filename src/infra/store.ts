@@ -151,7 +151,7 @@ function revisionFromRow(row: { id_guia: string; chave: string; status: Observat
 }
 
 async function persistObservationRevisions(database: NonNullable<ReturnType<typeof supabase>>, results: Resultado[]) {
-  const candidates = results.filter((result) => result.observacao?.origem === "groq" || result.observacao?.origem === "nao_lida").filter((result) => result.observacao?.chave).map((result) => ({ id_guia: result.id_guia, chave: result.observacao!.chave!, status: "ABERTA", origem: result.observacao!.origem === "groq" ? "groq" : "nao_lida", classe: result.observacao!.classe === "revisar" || result.observacao!.classe === "sinal" ? result.observacao!.classe : "nao_lida", sinais: result.observacao!.sinais, motivo: result.observacao!.motivo ?? null }));
+  const candidates = results.filter((result) => result.observacao?.origem === "groq" || result.observacao?.origem === "nao_lida").filter((result) => result.observacao?.classe !== "rotina").filter((result) => result.observacao?.chave).map((result) => ({ id_guia: result.id_guia, chave: result.observacao!.chave!, status: "ABERTA", origem: result.observacao!.origem === "groq" ? "groq" : "nao_lida", classe: result.observacao!.classe === "revisar" || result.observacao!.classe === "sinal" ? result.observacao!.classe : "nao_lida", sinais: result.observacao!.sinais, motivo: result.observacao!.motivo ?? null }));
   if (!candidates.length) return;
   const existing = await database.from("observacao_revisoes").select("id_guia,chave,status").in("id_guia", candidates.map((candidate) => candidate.id_guia));
   if (existing.error) throw new Error("BANCO_INDISPONIVEL");

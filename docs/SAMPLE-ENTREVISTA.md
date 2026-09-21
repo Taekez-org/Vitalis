@@ -8,7 +8,7 @@ O arquivo e adicional ao lote original e usa somente dados sinteticos. Ele foi c
 
 | Guia | Esperado | Motivo |
 | --- | --- | --- |
-| `ENT-OK-001` | `OK` | Todos os campos e regras estruturadas estao validos. Sem observacao, nao chama o Groq. |
+| `ENT-OK-001` | `PENDENTE` | A guia e valida isoladamente, mas fica pendente por duplicidade com `ENT-DUP-006`; a observacao e de rotina. |
 | `ENT-FALTA-002` | `PENDENTE` | Falta `carteirinha`, campo obrigatorio do Vitalcard. |
 | `ENT-ROTINA-003` | `OK` + Groq `rotina` | A observacao e informativa e nao contradiz a regra. |
 | `ENT-SINAL-004` | `PENDENTE` + Groq `sinal` | Falta descricao do procedimento e a observacao indica autorizacao nova nao lancada. |
