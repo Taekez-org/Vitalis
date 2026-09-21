@@ -106,7 +106,7 @@ Para publicar na Vercel, configure `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` 
 
 ### Ativar o leitor Groq
 
-O Groq roda somente no servidor. A chave nunca vai para o navegador, para o CSV, para o MCP ou para o Git. Para ativar em Production na Vercel, cadastre `GROQ_API_KEY` como Secret, defina `GROQ_MODEL=llama-3.1-8b-instant` e somente entao altere `LEITOR_IA` para `on`. O leitor mascara CPF, telefone e e-mail antes do envio, usa temperatura zero, resposta JSON validada por Zod e timeout; qualquer falha vira `nao_lida` e nao altera a decisao deterministica.
+O Groq roda somente no servidor. A chave nunca vai para o navegador, para o CSV, para o MCP ou para o Git. Para ativar em Production na Vercel, cadastre `GROQ_API_KEY` como Secret, defina `GROQ_MODEL=openai/gpt-oss-20b` e somente entao altere `LEITOR_IA` para `on`. O leitor mascara CPF, telefone e e-mail antes do envio, usa temperatura zero, resposta JSON validada por Zod e timeout; qualquer falha vira `nao_lida` e nao altera a decisao deterministica.
 
 ## Como testei
 
