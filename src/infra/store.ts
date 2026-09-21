@@ -75,11 +75,10 @@ export async function saveLoad(fileName: string, fileHash: string, guides: Guia[
 export async function latestResults(): Promise<VerificationRecord[]> {
   const database = supabase();
   if (database) {
-    const rows = await readPages((from, to) => database.from("ultima_verificacao").select("id_guia,carga_id,status,resultado,valor,criada_em").order("id_guia").range(from, to));
     const history = await readPages((from, to) => database.from("verificacoes").select("id_guia,carga_id,status,resultado,valor,criada_em").order("criada_em").range(from, to));
     const guides = await readPages((from, to) => database.from("guias").select("id_guia,dados").range(from, to));
     const treatments = await readPages((from, to) => database.from("tratamentos").select("id_guia,situacao,marcado_por,marcada_em").range(from, to));
-    const loads = await database.from("cargas").select("id,nome_arquivo,quantidade_guias,criada_em").order("criada_em", { ascending: false }).range(0, 999);
+    const loads = await database.from("cargas").select("id,nome_arquivo,quantidade_guias,criada_em").order("criada_em").range(0, 999);
     if (loads.error) throw new Error("BANCO_INDISPONIVEL");
     store.guides.clear();
     for (const row of guides) store.guides.set(row.id_guia, row.dados as Guia);
@@ -92,7 +91,9 @@ export async function latestResults(): Promise<VerificationRecord[]> {
     for (const row of history) store.verifications.push({ ...(row.resultado as Resultado), createdAt: row.criada_em, loadId: row.carga_id });
     store.loads.length = 0;
     for (const row of loads.data ?? []) store.loads.push({ id: row.id, fileName: row.nome_arquivo, count: row.quantidade_guias, createdAt: row.criada_em });
-    return rows.map((row) => ({ ...(row.resultado as Resultado), createdAt: row.criada_em, loadId: row.carga_id }));
+    const latest = new Map<string, VerificationRecord>();
+    for (const row of history) latest.set(row.id_guia, { ...(row.resultado as Resultado), createdAt: row.criada_em, loadId: row.carga_id });
+    return [...latest.values()];
   }
   const latest = new Map<string, VerificationRecord>();
   for (const result of store.verifications) latest.set(result.id_guia, result);
