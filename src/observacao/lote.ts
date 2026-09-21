@@ -27,7 +27,7 @@ export async function processarObservacoes(jobs: ObservationJob[], reader?: Obse
       const index = cursor++;
       const job = activeJobs[index];
       if (!job) return;
-      const key = chaveLeitura(job.guide.observacao_recepcao, job.context, "obs-v1", process.env.GROQ_MODEL ?? "");
+      const key = chaveLeitura(job.guide.observacao_recepcao, job.context, "obs-v1", process.env.GEMINI_MODEL ?? process.env.GROQ_MODEL ?? "");
       let reading = inFlight.get(key);
       if (!reading) {
         const remaining = BUDGET_MS - (Date.now() - started);
