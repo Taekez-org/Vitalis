@@ -21,9 +21,11 @@ O codigo da aplicacao, do MCP e da Skill esta nesta pasta. Os dados ficticios vi
 - A entrada operacional principal e um upload de CSV.
 - Sao tres areas: Carga de guias, Pendencias e Dashboard.
 - Supabase guarda cargas, verificacoes e tratamento humano.
+- `tratamento_eventos` guarda a trilha append-only de cada transicao, com lote, data e responsavel.
 - Uma guia so sai da fila quando uma nova verificacao retorna `OK`.
 - O check humano significa "corrigida na origem, aguardando reverificacao".
 - Dashboard atualiza por polling a cada 5 segundos; nao depende de Realtime.
+- O historico pode ser consultado em `/api/historico`, com filtros por periodo, guia, evento, responsavel e estado.
 - Pendencias tem filtros avancados, exportacao CSV e tempo de resolucao.
 - Dashboard tem graficos simples sem biblioteca adicional.
 - O MCP ajuda a consultar regras, conferir uma guia e explicar a fila, mas nao fecha pendencias.
