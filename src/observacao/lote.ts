@@ -47,7 +47,7 @@ function toSummary(result: ObservationReadResult, key: string): Resultado["obser
     origem: result.source,
     classe: result.reading?.classe ?? (result.source === "desligada" ? "desligada" : "nao_lida"),
     sinais: result.reading?.sinais ?? [],
-    ...(result.reading?.motivo ? { motivo: result.reading.motivo } : {}),
+    ...(result.reading?.motivo ? { motivo: result.reading.motivo } : result.reason ? { motivo: result.reason } : {}),
     ...(result.source !== "desligada" ? { chave: key } : {}),
     prompt_versao: result.promptVersion,
     ...(result.model ? { modelo: result.model } : {}),
