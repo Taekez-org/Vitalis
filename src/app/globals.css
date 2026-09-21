@@ -19,10 +19,20 @@
     --accent: 43 70% 88%;
     --accent-foreground: 42 55% 24%;
     --destructive: 25 70% 45%;
+    --destructive-foreground: 45 33% 98%;
+    --success: 151 45% 30%;
+    --success-foreground: 45 33% 98%;
+    --warning: 39 82% 48%;
+    --warning-foreground: 35 65% 16%;
+    --risk: 8 67% 46%;
+    --risk-foreground: 45 33% 98%;
+    --surface-subtle: 45 30% 95%;
+    --surface-raised: 45 33% 99%;
     --border: 145 18% 86%;
     --input: 145 18% 86%;
     --ring: 151 55% 45%;
     --radius: 0.75rem;
+    --shadow-card: 0 1px 2px 0 rgb(28 48 38 / 0.04), 0 8px 24px -18px rgb(28 48 38 / 0.24);
   }
   * { @apply border-border; }
   body { @apply bg-background text-foreground antialiased; }

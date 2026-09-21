@@ -104,6 +104,10 @@ Para instalar o MCP em um cliente que aceite servidores HTTP, adicione a URL aci
 
 Para publicar na Vercel, configure `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` como variaveis de ambiente privadas, aplique `db/schema.sql` no projeto Supabase e execute o smoke test descrito em `docs/V4-PLANO.md`.
 
+### Ativar o leitor Groq
+
+O Groq roda somente no servidor. A chave nunca vai para o navegador, para o CSV, para o MCP ou para o Git. Para ativar em Production na Vercel, cadastre `GROQ_API_KEY` como Secret, defina `GROQ_MODEL=llama-3.1-8b-instant` e somente entao altere `LEITOR_IA` para `on`. O leitor mascara CPF, telefone e e-mail antes do envio, usa temperatura zero, resposta JSON validada por Zod e timeout; qualquer falha vira `nao_lida` e nao altera a decisao deterministica.
+
 ## Como testei
 
 - `npm.cmd test`: 27 testes passando.

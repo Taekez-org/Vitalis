@@ -9,4 +9,3 @@ tsconfig.tsbuildinfo
 supabase/.temp
 
 .vercel
-.env*
