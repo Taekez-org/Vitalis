@@ -16,3 +16,10 @@ export function geminiConfig(): { apiKey: string; model: string } | null {
   if (!apiKey) return null;
   return { apiKey, model: process.env.GEMINI_MODEL ?? "gemini-flash-latest" };
 }
+
+export function openRouterConfig(): { apiKey: string; model: string } | null {
+  if (!leitorIaLigado()) return null;
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) return null;
+  return { apiKey, model: process.env.OPENROUTER_MODEL ?? "openrouter/free" };
+}

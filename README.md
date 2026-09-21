@@ -104,9 +104,9 @@ Para instalar o MCP em um cliente que aceite servidores HTTP, adicione a URL aci
 
 Para publicar na Vercel, configure `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` como variaveis de ambiente privadas, aplique `db/schema.sql` no projeto Supabase e execute o smoke test descrito em `docs/V4-PLANO.md`.
 
-### Ativar o leitor Groq
+### Ativar o leitor de observações
 
-O Groq roda somente no servidor. A chave nunca vai para o navegador, para o CSV, para o MCP ou para o Git. Para ativar em Production na Vercel, cadastre `GROQ_API_KEY` como Secret, defina `GROQ_MODEL=openai/gpt-oss-20b` e somente entao altere `LEITOR_IA` para `on`. O leitor mascara CPF, telefone e e-mail antes do envio, usa temperatura zero, resposta JSON validada por Zod e timeout; qualquer falha vira `nao_lida` e nao altera a decisao deterministica.
+As chaves rodam somente no servidor e nunca vão para o navegador, CSV, MCP ou Git. Com `LEITOR_IA=on`, a ordem é Gemini, OpenRouter e Groq. Configure as chaves disponíveis como Secrets na Vercel; `OPENROUTER_MODEL` pode usar `openrouter/free` ou um modelo gratuito atual do catálogo. O leitor mascara CPF, telefone e e-mail antes do envio, usa temperatura zero, resposta JSON validada por Zod e retry; qualquer falha vira `nao_lida` e não altera a decisão determinística.
 
 ## Como testei
 

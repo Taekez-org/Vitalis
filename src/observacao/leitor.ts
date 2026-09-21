@@ -1,4 +1,4 @@
-import { geminiConfig, groqConfig, leitorIaLigado } from "./config";
+import { geminiConfig, groqConfig, leitorIaLigado, openRouterConfig } from "./config";
 import { mascararObservacao } from "./seguranca";
 import { observationPromptVersion, observationSystemPrompt, userPrompt } from "./prompt";
 import { parseObservationReading, type ObservationContext, type ObservationReading, type ObservationSource } from "./contrato";
@@ -74,6 +74,30 @@ export class GeminiObservationReader implements ObservationReader {
   }
 }
 
+export class OpenRouterObservationReader implements ObservationReader {
+  async read(observation: string, context: ObservationContext): Promise<ObservationReading> {
+    const config = openRouterConfig();
+    if (!config) throw new Error("OPENROUTER_CONFIGURACAO_AUSENTE");
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        signal: controller.signal,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.apiKey}`, "HTTP-Referer": "https://vitalis-ei.vercel.app", "X-Title": "Vitalis" },
+        body: JSON.stringify({ model: config.model, temperature: 0, max_tokens: 200, response_format: { type: "json_object" }, messages: [{ role: "system", content: observationSystemPrompt }, { role: "user", content: userPrompt(mascararObservacao(observation), context) }] }),
+      });
+      if (!response.ok) throw new Error(`OPENROUTER_HTTP_${response.status}`);
+      const payload = await response.json() as { choices?: { message?: { content?: string } }[] };
+      const content = payload.choices?.[0]?.message?.content;
+      if (!content) throw new Error("OPENROUTER_RESPOSTA_VAZIA");
+      return parseObservationReading(JSON.parse(content));
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
+
 export class FakeObservationReader implements ObservationReader {
   constructor(private readonly response: ObservationReading | Error) {}
 
@@ -88,24 +112,23 @@ export async function readObservation(observation: string, context: ObservationC
   if (!leitorIaLigado()) return { source: "desligada", reason: "LEITOR_IA_OFF", promptVersion: observationPromptVersion };
   try {
     if (reader) return { source: "groq", reading: await reader.read(observation, context), promptVersion: observationPromptVersion, model: "fake" };
-    const primary = geminiConfig();
-    const fallback = groqConfig();
-    if (!primary && !fallback) return { source: "nao_lida", reason: "LEITOR_IA_CONFIGURACAO_AUSENTE", promptVersion: observationPromptVersion };
-    try {
-      if (primary) return { source: "groq", reading: await readWithRetry(new GeminiObservationReader(), observation, context), promptVersion: observationPromptVersion, model: primary.model };
-      return { source: "groq", reading: await readWithRetry(new GroqObservationReader(), observation, context), promptVersion: observationPromptVersion, model: fallback!.model };
-    } catch (primaryError) {
-      if (!primary || !fallback) throw primaryError;
+    const providers = [
+      geminiConfig() ? { reader: new GeminiObservationReader(), model: geminiConfig()!.model } : null,
+      openRouterConfig() ? { reader: new OpenRouterObservationReader(), model: openRouterConfig()!.model } : null,
+      groqConfig() ? { reader: new GroqObservationReader(), model: groqConfig()!.model } : null,
+    ].filter((provider): provider is { reader: ObservationReader; model: string } => Boolean(provider));
+    if (!providers.length) return { source: "nao_lida", reason: "LEITOR_IA_CONFIGURACAO_AUSENTE", promptVersion: observationPromptVersion };
+    const errors: string[] = [];
+    for (const provider of providers) {
       try {
-        return { source: "groq", reading: await readWithRetry(new GroqObservationReader(), observation, context), promptVersion: observationPromptVersion, model: fallback.model };
-      } catch (fallbackError) {
-        const primaryCode = primaryError instanceof Error ? primaryError.message : "GEMINI_LEITURA_INDISPONIVEL";
-        const fallbackCode = fallbackError instanceof Error ? fallbackError.message : "GROQ_LEITURA_INDISPONIVEL";
-        throw new Error(`${primaryCode};${fallbackCode}`);
+        return { source: "groq", reading: await readWithRetry(provider.reader, observation, context), promptVersion: observationPromptVersion, model: provider.model };
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : "IA_LEITURA_INDISPONIVEL");
       }
     }
+    throw new Error(errors.join(";"));
   } catch (error) {
-    const code = error instanceof Error && /^(GEMINI|GROQ)_/.test(error.message) ? error.message : "IA_LEITURA_INDISPONIVEL";
+    const code = error instanceof Error && /^(GEMINI|OPENROUTER|GROQ)_/.test(error.message) ? error.message : "IA_LEITURA_INDISPONIVEL";
     return { source: "nao_lida", reason: code, promptVersion: observationPromptVersion };
   }
 }
