@@ -14,10 +14,11 @@ describe("contrato seguro da observacao", () => {
 
   it("aceita apenas classes coerentes e limita o motivo", () => {
     expect(parseObservationReading({ classe: "rotina", sinais: [], motivo: "" })).toEqual({ classe: "rotina", sinais: [], motivo: "" });
-    expect(parseObservationReading({ classe: "sinal", sinais: ["TXT_FATURAR_PARTICULAR"], motivo: "" }).sinais).toHaveLength(1);
+    expect(parseObservationReading({ classe: "sinal", sinais: ["TXT_FATURAR_PARTICULAR"], motivo: "A observacao indica faturamento particular." }).sinais).toHaveLength(1);
     expect(parseObservationReading({ classe: "revisar", sinais: [], motivo: "x".repeat(200) }).motivo).toHaveLength(140);
     expect(() => parseObservationReading({ classe: "rotina", sinais: ["TXT_FATURAR_PARTICULAR"], motivo: "" })).toThrow();
     expect(() => parseObservationReading({ classe: "sinal", sinais: [], motivo: "" })).toThrow();
+    expect(() => parseObservationReading({ classe: "sinal", sinais: ["TXT_FATURAR_PARTICULAR"], motivo: "" })).toThrow();
   });
 
   it("gera chave diferente para contexto ou versao diferentes", () => {

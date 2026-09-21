@@ -18,8 +18,8 @@ export const observationSchema = z.object({
 }).strict().superRefine((value, context) => {
   if (value.classe === "sinal" && value.sinais.length === 0) context.addIssue({ code: "custom", path: ["sinais"], message: "sinal exige ao menos um codigo" });
   if (value.classe !== "sinal" && value.sinais.length > 0) context.addIssue({ code: "custom", path: ["sinais"], message: "sinais so podem existir na classe sinal" });
-  if (value.classe === "revisar" && !value.motivo) context.addIssue({ code: "custom", path: ["motivo"], message: "revisar exige motivo" });
-  if (value.classe !== "revisar" && value.motivo) context.addIssue({ code: "custom", path: ["motivo"], message: "motivo so pode existir na classe revisar" });
+  if (value.classe !== "rotina" && !value.motivo) context.addIssue({ code: "custom", path: ["motivo"], message: "sinal e revisar exigem motivo" });
+  if (value.classe === "rotina" && value.motivo) context.addIssue({ code: "custom", path: ["motivo"], message: "rotina nao deve ter motivo" });
 });
 
 export type ObservationReading = z.infer<typeof observationSchema>;

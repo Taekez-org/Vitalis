@@ -8,5 +8,6 @@ export async function GET() {
 }
 
 function publicRevision(revision: Awaited<ReturnType<typeof listObservationRevisionsAsync>>[number]) {
-  return { id_guia: revision.id_guia, chave: revision.chave, status: revision.status, origem: revision.origem, classe: revision.classe, sinais: revision.sinais, motivo: revision.motivo, criada_em: revision.createdAt, resolvida_em: revision.resolvedAt, resolvida_por: revision.resolvedBy };
+  const motivo = revision.motivo ?? (revision.origem === "nao_lida" ? "A leitura automática falhou. Fazer leitura humana da observação e confirmar os dados antes do faturamento." : "O sinal foi identificado, mas não há explicação registrada. Fazer leitura humana antes do faturamento.");
+  return { id_guia: revision.id_guia, chave: revision.chave, status: revision.status, origem: revision.origem, classe: revision.classe, sinais: revision.sinais, motivo, criada_em: revision.createdAt, resolvida_em: revision.resolvedAt, resolvida_por: revision.resolvedBy };
 }
