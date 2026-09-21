@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 45 33% 97%;
+    --foreground: 150 20% 18%;
+    --card: 45 33% 99%;
+    --card-foreground: 150 20% 18%;
+    --popover: 45 33% 99%;
+    --popover-foreground: 150 20% 18%;
+    --primary: 151 45% 30%;
+    --primary-foreground: 45 33% 98%;
+    --secondary: 145 35% 92%;
+    --secondary-foreground: 150 45% 24%;
+    --muted: 45 20% 93%;
+    --muted-foreground: 150 12% 42%;
+    --accent: 43 70% 88%;
+    --accent-foreground: 42 55% 24%;
+    --destructive: 25 70% 45%;
+    --border: 145 18% 86%;
+    --input: 145 18% 86%;
+    --ring: 151 55% 45%;
+    --radius: 0.75rem;
+  }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground antialiased; }
+  button, input, select { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2; }
+}
