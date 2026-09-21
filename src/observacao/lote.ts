@@ -7,7 +7,7 @@ import type { ObservationContext } from "./contrato";
 export type ObservationJob = { guide: Guia; result: Resultado; context: ObservationContext };
 
 const MAX_CONCURRENCY = 2;
-const BUDGET_MS = 6000;
+const BUDGET_MS = 45000;
 
 export async function processarObservacoes(jobs: ObservationJob[], reader?: ObservationReader): Promise<Map<string, Resultado["observacao"]>> {
   const output = new Map<string, Resultado["observacao"]>();

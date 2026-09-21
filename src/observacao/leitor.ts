@@ -3,6 +3,8 @@ import { mascararObservacao } from "./seguranca";
 import { observationPromptVersion, observationSystemPrompt, userPrompt } from "./prompt";
 import { parseObservationReading, type ObservationContext, type ObservationReading, type ObservationSource } from "./contrato";
 
+const REQUEST_TIMEOUT_MS = 10000;
+
 export type ObservationReadResult = {
   source: ObservationSource;
   reading?: ObservationReading;
@@ -20,7 +22,7 @@ export class GroqObservationReader implements ObservationReader {
     const config = groqConfig();
     if (!config) throw new Error("LEITOR_IA_DESLIGADO");
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 4000);
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
       const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -53,7 +55,7 @@ export class GeminiObservationReader implements ObservationReader {
     const config = geminiConfig();
     if (!config) throw new Error("GEMINI_CONFIGURACAO_AUSENTE");
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 4000);
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent`, {
         method: "POST",
@@ -90,12 +92,12 @@ export async function readObservation(observation: string, context: ObservationC
     const fallback = groqConfig();
     if (!primary && !fallback) return { source: "nao_lida", reason: "LEITOR_IA_CONFIGURACAO_AUSENTE", promptVersion: observationPromptVersion };
     try {
-      if (primary) return { source: "groq", reading: await new GeminiObservationReader().read(observation, context), promptVersion: observationPromptVersion, model: primary.model };
-      return { source: "groq", reading: await new GroqObservationReader().read(observation, context), promptVersion: observationPromptVersion, model: fallback!.model };
+      if (primary) return { source: "groq", reading: await readWithRetry(new GeminiObservationReader(), observation, context), promptVersion: observationPromptVersion, model: primary.model };
+      return { source: "groq", reading: await readWithRetry(new GroqObservationReader(), observation, context), promptVersion: observationPromptVersion, model: fallback!.model };
     } catch (primaryError) {
       if (!primary || !fallback) throw primaryError;
       try {
-        return { source: "groq", reading: await new GroqObservationReader().read(observation, context), promptVersion: observationPromptVersion, model: fallback.model };
+        return { source: "groq", reading: await readWithRetry(new GroqObservationReader(), observation, context), promptVersion: observationPromptVersion, model: fallback.model };
       } catch (fallbackError) {
         const primaryCode = primaryError instanceof Error ? primaryError.message : "GEMINI_LEITURA_INDISPONIVEL";
         const fallbackCode = fallbackError instanceof Error ? fallbackError.message : "GROQ_LEITURA_INDISPONIVEL";
@@ -106,4 +108,21 @@ export async function readObservation(observation: string, context: ObservationC
     const code = error instanceof Error && /^(GEMINI|GROQ)_/.test(error.message) ? error.message : "IA_LEITURA_INDISPONIVEL";
     return { source: "nao_lida", reason: code, promptVersion: observationPromptVersion };
   }
+}
+
+async function readWithRetry(reader: ObservationReader, observation: string, context: ObservationContext): Promise<ObservationReading> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await reader.read(observation, context);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "IA_LEITURA_INDISPONIVEL";
+      if (attempt === 2 || !retryableProviderError(message)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+    }
+  }
+  throw new Error("IA_LEITURA_INDISPONIVEL");
+}
+
+function retryableProviderError(message: string): boolean {
+  return /_HTTP_(429|5\d\d)$/.test(message) || /aborted|timeout|fetch failed|network/i.test(message);
 }
