@@ -14,7 +14,7 @@ export function geminiConfig(): { apiKey: string; model: string } | null {
   if (!leitorIaLigado()) return null;
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
-  return { apiKey, model: process.env.GEMINI_MODEL ?? "gemini-flash-latest" };
+  return { apiKey, model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash-lite" };
 }
 
 export function openRouterConfig(): { apiKey: string; model: string } | null {
