@@ -66,7 +66,7 @@ begin
   return jsonb_build_object('carga_id', v_id, 'ja_existia', false);
 end $$;
 
-create or replace function public.bloquear_historico() returns trigger language plpgsql as $$
+create or replace function public.bloquear_historico() returns trigger language plpgsql set search_path = public as $$
 begin raise exception 'historico append-only'; end; $$;
 drop trigger if exists verificacoes_append_only on public.verificacoes;
 create trigger verificacoes_append_only before update or delete on public.verificacoes for each row execute function public.bloquear_historico();
@@ -78,8 +78,11 @@ alter table public.guias enable row level security;
 alter table public.verificacoes enable row level security;
 alter table public.tratamentos enable row level security;
 revoke all on public.cargas, public.guias, public.verificacoes, public.tratamentos, public.ultima_verificacao from anon, authenticated;
+grant select on public.cargas, public.guias, public.verificacoes, public.tratamentos, public.ultima_verificacao to service_role;
+grant insert, update on public.tratamentos to service_role;
 revoke all on function public.registrar_carga(text, text, jsonb, jsonb) from public, anon, authenticated;
 grant execute on function public.registrar_carga(text, text, jsonb, jsonb) to service_role;
+revoke execute on function public.rls_auto_enable() from public, anon, authenticated;
 
 do $$ begin
   alter publication supabase_realtime add table public.cargas;

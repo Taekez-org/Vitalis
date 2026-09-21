@@ -6,3 +6,7 @@ out
 coverage
 data/.local-store.json
 tsconfig.tsbuildinfo
+supabase/.temp
+
+.vercel
+.env*
