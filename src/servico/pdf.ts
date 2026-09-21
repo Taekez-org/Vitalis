@@ -111,11 +111,21 @@ function drawBarList(page: PDFPage, fonts: Fonts, x: number, y: number, width: n
 }
 
 function drawIcon(page: PDFPage, fonts: Fonts, x: number, y: number, color: ReturnType<typeof rgb>, icon: "check" | "alert" | "money" | "shield") {
+  void fonts;
+  const paths = {
+    check: "M9 12l2 2 4-4 M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z",
+    alert: "M10.3 2.9 1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0z M12 9v4 M12 17h.01",
+    money: "M12 2v20 M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H7",
+    shield: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M9 12l2 2 4-4",
+  };
+  page.drawSvgPath(paths[icon], { x: x - 7, y: y - 7, scale: 0.58, borderColor: color, borderWidth: 1.8, color });
+/*
   if (icon === "check") page.drawLine({ start: { x: x - 5, y }, end: { x: x - 1, y: y - 4 }, thickness: 1.7, color });
   if (icon === "check") page.drawLine({ start: { x: x - 1, y: y - 4 }, end: { x: x + 6, y: y + 5 }, thickness: 1.7, color });
   if (icon === "alert") { page.drawLine({ start: { x: x, y: y + 6 }, end: { x: x, y: y - 2 }, thickness: 1.7, color }); page.drawCircle({ x, y: y - 5, size: 1.2, color }); }
   if (icon === "money") { page.drawCircle({ x, y, size: 6, borderColor: color, borderWidth: 1.2 }); page.drawText("$", { x: x - 2.5, y: y - 3.5, size: 7, color, font: fonts.bold }); }
   if (icon === "shield") { page.drawLine({ start: { x: x - 5, y: y + 4 }, end: { x, y: y + 7 }, thickness: 1.3, color }); page.drawLine({ start: { x, y: y + 7 }, end: { x: x + 5, y: y + 4 }, thickness: 1.3, color }); page.drawLine({ start: { x: x - 5, y: y + 4 }, end: { x: x - 3, y: y - 4 }, thickness: 1.3, color }); page.drawLine({ start: { x: x + 5, y: y + 4 }, end: { x: x + 3, y: y - 4 }, thickness: 1.3, color }); }
+*/
 }
 
 function drawFooter(page: PDFPage, fonts: Fonts, report: RelatorioPeriodo, geradoEm: string, pageNumber: number) {
