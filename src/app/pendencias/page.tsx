@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { rotuloMotivo } from "@/servico/rotulos";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -71,6 +72,6 @@ function PendingRow({ item, isOpen, onToggle, onMark }: { item: Pending; isOpen:
       <TableCell><Badge variant={item.tratamento.status === "AGUARDANDO_REVERIFICACAO" ? "outline" : "destructive"}>{item.tratamento.status === "AGUARDANDO_REVERIFICACAO" ? "Aguardando reverificação" : "A fazer"}</Badge></TableCell>
       <TableCell><Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); onMark(); }}>Corrigi</Button></TableCell>
     </TableRow>
-    {isOpen && <TableRow><TableCell colSpan={5} className="bg-muted/40"><div className="grid gap-3 py-2">{item.motivos.map((reason) => <div className="rounded-lg border bg-background p-3" key={reason.codigo}><div className="flex flex-wrap items-center gap-2"><Badge variant="outline">{reason.codigo}</Badge>{reason.campo && <span className="text-sm text-muted-foreground">Campo: <strong>{reason.campo}</strong></span>}</div><p className="mt-2 text-sm">{reason.acao}</p><p className="mt-1 text-xs text-muted-foreground">Resolve: {responsibleLabel[reason.responsavel] ?? reason.responsavel}</p></div>)}<p className="text-xs text-muted-foreground">O botão “Corrigi” apenas registra que a correção foi feita na origem. A guia só sai da fila depois de uma nova verificação OK.</p></div></TableCell></TableRow>}
+    {isOpen && <TableRow><TableCell colSpan={5} className="bg-muted/40"><div className="grid gap-3 py-2">{item.motivos.map((reason) => <div className="rounded-lg border bg-background p-3" key={reason.codigo}><div className="flex flex-wrap items-center gap-2"><Badge variant="outline">{rotuloMotivo(reason.codigo)}</Badge>{reason.campo && <span className="text-sm text-muted-foreground">Campo: <strong>{reason.campo}</strong></span>}</div><p className="mt-2 text-sm">{reason.acao}</p><p className="mt-1 text-xs text-muted-foreground">Resolve: {responsibleLabel[reason.responsavel] ?? reason.responsavel}</p></div>)}<p className="text-xs text-muted-foreground">O botão “Corrigi” apenas registra que a correção foi feita na origem. A guia só sai da fila depois de uma nova verificação OK.</p></div></TableCell></TableRow>}
   </>;
 }

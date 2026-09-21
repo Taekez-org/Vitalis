@@ -31,8 +31,23 @@ create table if not exists public.tratamentos (
   marcada_em timestamptz not null default now()
 );
 
+create table if not exists public.tratamento_eventos (
+  id uuid primary key default gen_random_uuid(),
+  id_guia text not null references public.guias(id_guia),
+  carga_id uuid references public.cargas(id),
+  status_tecnico text check (status_tecnico in ('OK', 'PENDENTE')),
+  status_anterior text check (status_anterior is null or status_anterior in ('ABERTA', 'EM_TRATAMENTO', 'AGUARDANDO_REVERIFICACAO', 'RESOLVIDA')),
+  status_novo text not null check (status_novo in ('ABERTA', 'EM_TRATAMENTO', 'AGUARDANDO_REVERIFICACAO', 'RESOLVIDA')),
+  evento text not null,
+  por_quem text not null,
+  comentario text,
+  criado_em timestamptz not null default now()
+);
+
 create index if not exists verificacoes_guia_data_idx on public.verificacoes (id_guia, criada_em desc);
 create index if not exists verificacoes_status_idx on public.verificacoes (status);
+create index if not exists tratamento_eventos_guia_data_idx on public.tratamento_eventos (id_guia, criado_em desc);
+create index if not exists tratamento_eventos_status_idx on public.tratamento_eventos (status_novo, criado_em desc);
 
 create or replace view public.ultima_verificacao with (security_invoker = true) as
 select distinct on (id_guia) id_guia, carga_id, status, resultado, valor, criada_em
@@ -56,13 +71,35 @@ begin
   insert into public.verificacoes (id_guia, carga_id, status, resultado, valor)
   select v->>'id_guia', v_id, v->>'status', v, nullif(v->>'valor', '')::numeric
   from jsonb_array_elements(p_verificacoes) v;
-  update public.tratamentos t set situacao = case
-    when v.status = 'OK' then 'RESOLVIDA'
-    when t.situacao = 'AGUARDANDO_REVERIFICACAO' then 'EM_TRATAMENTO'
-    when t.situacao = 'RESOLVIDA' then 'ABERTA'
-    else t.situacao end
-  from (select x->>'id_guia' id_guia, x->>'status' status from jsonb_array_elements(p_verificacoes) x) v
-  where t.id_guia = v.id_guia and (v.status = 'OK' or t.situacao in ('AGUARDANDO_REVERIFICACAO', 'RESOLVIDA'));
+  insert into public.tratamento_eventos (id_guia, carga_id, status_tecnico, status_anterior, status_novo, evento, por_quem)
+  select v->>'id_guia', v_id, v->>'status', t.situacao,
+    case
+      when v->>'status' = 'OK' then 'RESOLVIDA'
+      when t.situacao = 'AGUARDANDO_REVERIFICACAO' then 'EM_TRATAMENTO'
+      when t.situacao = 'RESOLVIDA' then 'ABERTA'
+      else coalesce(t.situacao, 'ABERTA')
+    end,
+    case
+      when v->>'status' = 'OK' then 'VERIFICACAO_OK'
+      when t.situacao = 'AGUARDANDO_REVERIFICACAO' then 'REVERIFICACAO_PENDENTE'
+      when t.situacao = 'RESOLVIDA' then 'PENDENCIA_REABERTA'
+      else 'PENDENCIA_IDENTIFICADA'
+    end,
+    'sistema'
+  from jsonb_array_elements(p_verificacoes) v
+  left join public.tratamentos t on t.id_guia = v->>'id_guia';
+  insert into public.tratamentos (id_guia, situacao, marcado_por, marcada_em)
+  select v->>'id_guia',
+    case
+      when v->>'status' = 'OK' then 'RESOLVIDA'
+      when t.situacao = 'AGUARDANDO_REVERIFICACAO' then 'EM_TRATAMENTO'
+      when t.situacao = 'RESOLVIDA' then 'ABERTA'
+      else coalesce(t.situacao, 'ABERTA')
+    end,
+    'sistema', now()
+  from jsonb_array_elements(p_verificacoes) v
+  left join public.tratamentos t on t.id_guia = v->>'id_guia'
+  on conflict (id_guia) do update set situacao = excluded.situacao, marcado_por = excluded.marcado_por, marcada_em = excluded.marcada_em;
   return jsonb_build_object('carga_id', v_id, 'ja_existia', false);
 end $$;
 
@@ -72,14 +109,18 @@ drop trigger if exists verificacoes_append_only on public.verificacoes;
 create trigger verificacoes_append_only before update or delete on public.verificacoes for each row execute function public.bloquear_historico();
 drop trigger if exists cargas_append_only on public.cargas;
 create trigger cargas_append_only before update or delete on public.cargas for each row execute function public.bloquear_historico();
+drop trigger if exists tratamento_eventos_append_only on public.tratamento_eventos;
+create trigger tratamento_eventos_append_only before update or delete on public.tratamento_eventos for each row execute function public.bloquear_historico();
 
 alter table public.cargas enable row level security;
 alter table public.guias enable row level security;
 alter table public.verificacoes enable row level security;
 alter table public.tratamentos enable row level security;
-revoke all on public.cargas, public.guias, public.verificacoes, public.tratamentos, public.ultima_verificacao from anon, authenticated;
-grant select on public.cargas, public.guias, public.verificacoes, public.tratamentos, public.ultima_verificacao to service_role;
+alter table public.tratamento_eventos enable row level security;
+revoke all on public.cargas, public.guias, public.verificacoes, public.tratamentos, public.tratamento_eventos, public.ultima_verificacao from anon, authenticated;
+grant select on public.cargas, public.guias, public.verificacoes, public.tratamentos, public.tratamento_eventos, public.ultima_verificacao to service_role;
 grant insert, update on public.tratamentos to service_role;
+grant insert on public.tratamento_eventos to service_role;
 revoke all on function public.registrar_carga(text, text, jsonb, jsonb) from public, anon, authenticated;
 grant execute on function public.registrar_carga(text, text, jsonb, jsonb) to service_role;
 revoke execute on function public.rls_auto_enable() from public, anon, authenticated;
@@ -88,5 +129,6 @@ do $$ begin
   alter publication supabase_realtime add table public.cargas;
   alter publication supabase_realtime add table public.verificacoes;
   alter publication supabase_realtime add table public.tratamentos;
+  alter publication supabase_realtime add table public.tratamento_eventos;
 exception when duplicate_object then null;
 end $$;

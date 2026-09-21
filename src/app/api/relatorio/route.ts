@@ -2,6 +2,7 @@ import { latestResults, store } from "../../../infra/store";
 import { calcularFrescor } from "../../../servico/frescor";
 import { hojeEmSaoPaulo } from "../../../infra/relogio";
 import { calcularRelatorioPeriodo, periodoFromParams } from "../../../servico/relatorio";
+import { rotuloMotivo } from "../../../servico/rotulos";
 import { productionDatabaseUnavailable } from "../../../infra/supabase";
 
 export async function GET(request: Request) {
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
 }
 
 function formatText(report: Record<string, unknown>) {
-  const codes = Object.entries(report.por_codigo as Record<string, number>).map(([code, count]) => `${code}: ${count}`).join("; ");
+  const codes = Object.entries(report.por_codigo as Record<string, number>).map(([code, count]) => `${rotuloMotivo(code)}: ${count}`).join("; ");
   return [
     `Relatorio Vitalis - periodo ${report.inicio} a ${report.fim}`,
     `Guias verificadas: ${report.verificadas}`,

@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import type { RelatorioPeriodo } from "./relatorio";
+import { rotuloMotivo } from "./rotulos";
 
 export async function gerarRelatorioPdf(report: RelatorioPeriodo, geradoEm: string): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
@@ -14,11 +15,11 @@ export async function gerarRelatorioPdf(report: RelatorioPeriodo, geradoEm: stri
     y -= size + 8;
   };
   const line = () => { page.drawLine({ start: { x: 42, y }, end: { x: 553, y }, thickness: 1, color: rgb(0.85, 0.87, 0.9) }); y -= 18; };
-  const section = (title: string, values: Record<string, number>) => {
+  const section = (title: string, values: Record<string, number>, labeler = (value: string) => value) => {
     text(title, 12, true);
     const entries = Object.entries(values).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
     if (!entries.length) text("Nenhum registro", 9, false, rgb(0.4, 0.43, 0.46));
-    for (const [label, value] of entries) text(`${label}: ${value}`, 9);
+    for (const [label, value] of entries) text(`${labeler(label)}: ${value}`, 9);
     y -= 6;
   };
 
@@ -38,7 +39,7 @@ export async function gerarRelatorioPdf(report: RelatorioPeriodo, geradoEm: stri
   text(`Glosa evitada: ${money(report.glosa_evitada)}`, 10, true, rgb(0.08, 0.33, 0.18));
   y -= 8;
   line();
-  section("Pendencias por motivo", report.por_codigo);
+  section("Pendencias por motivo", report.por_codigo, rotuloMotivo);
   section("Pendencias por convenio", report.por_convenio);
   section("Pendencias por unidade", report.por_unidade);
   y -= 8;

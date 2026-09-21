@@ -5,20 +5,21 @@ import { resolve } from "node:path";
 
 export type VerificationRecord = Resultado & { createdAt: string; loadId: string };
 export type Treatment = { id_guia: string; status: "ABERTA" | "EM_TRATAMENTO" | "AGUARDANDO_REVERIFICACAO" | "RESOLVIDA"; markedAt: string; markedBy: string };
+export type TreatmentEvent = { id_guia: string; loadId?: string; technicalStatus?: "OK" | "PENDENTE"; previousStatus?: Treatment["status"]; newStatus: Treatment["status"]; event: string; by: string; comment?: string; createdAt: string };
 export type ObservationRevision = { id_guia: string; chave: string; status: "ABERTA" | "RESOLVIDA"; origem: "groq" | "nao_lida"; classe: "sinal" | "revisar" | "nao_lida"; sinais: string[]; motivo?: string; createdAt: string; resolvedAt?: string; resolvedBy?: string; comment?: string };
 
-type LocalStore = { guides: Map<string, Guia>; verifications: VerificationRecord[]; treatments: Map<string, Treatment>; observationRevisions: Map<string, ObservationRevision>; loads: { id: string; fileName: string; fileHash?: string; count: number; createdAt: string }[] };
+type LocalStore = { guides: Map<string, Guia>; verifications: VerificationRecord[]; treatments: Map<string, Treatment>; treatmentEvents: TreatmentEvent[]; observationRevisions: Map<string, ObservationRevision>; loads: { id: string; fileName: string; fileHash?: string; count: number; createdAt: string }[] };
 const globalStore = globalThis as typeof globalThis & { vitalisStore?: LocalStore };
 
 function loadLocal(): LocalStore {
-  if (process.env.VITALIS_STORE_FILE === "memory") return { guides: new Map(), verifications: [], treatments: new Map(), observationRevisions: new Map(), loads: [] };
+  if (process.env.VITALIS_STORE_FILE === "memory") return { guides: new Map(), verifications: [], treatments: new Map(), treatmentEvents: [], observationRevisions: new Map(), loads: [] };
   const file = resolve(process.cwd(), "data/.local-store.json");
-  if (!existsSync(file)) return { guides: new Map(), verifications: [], treatments: new Map(), observationRevisions: new Map(), loads: [] };
+  if (!existsSync(file)) return { guides: new Map(), verifications: [], treatments: new Map(), treatmentEvents: [], observationRevisions: new Map(), loads: [] };
   try {
-    const saved = JSON.parse(readFileSync(file, "utf8")) as { guides: [string, Guia][]; verifications: VerificationRecord[]; treatments: [string, Treatment][]; observationRevisions?: [string, ObservationRevision][]; loads: LocalStore["loads"] };
-    return { guides: new Map(saved.guides), verifications: saved.verifications, treatments: new Map(saved.treatments), observationRevisions: new Map(saved.observationRevisions ?? []), loads: saved.loads };
+    const saved = JSON.parse(readFileSync(file, "utf8")) as { guides: [string, Guia][]; verifications: VerificationRecord[]; treatments: [string, Treatment][]; treatmentEvents?: TreatmentEvent[]; observationRevisions?: [string, ObservationRevision][]; loads: LocalStore["loads"] };
+    return { guides: new Map(saved.guides), verifications: saved.verifications, treatments: new Map(saved.treatments), treatmentEvents: saved.treatmentEvents ?? [], observationRevisions: new Map(saved.observationRevisions ?? []), loads: saved.loads };
   } catch {
-    return { guides: new Map(), verifications: [], treatments: new Map(), observationRevisions: new Map(), loads: [] };
+    return { guides: new Map(), verifications: [], treatments: new Map(), treatmentEvents: [], observationRevisions: new Map(), loads: [] };
   }
 }
 
@@ -29,7 +30,7 @@ globalStore.vitalisStore = store;
 function persistLocal() {
   if (process.env.VITALIS_STORE_FILE === "memory" || supabase()) return;
   try {
-  writeFileSync(resolve(process.cwd(), "data/.local-store.json"), JSON.stringify({ guides: [...store.guides.entries()], verifications: store.verifications, treatments: [...store.treatments.entries()], observationRevisions: [...store.observationRevisions.entries()], loads: store.loads }, null, 2), "utf8");
+  writeFileSync(resolve(process.cwd(), "data/.local-store.json"), JSON.stringify({ guides: [...store.guides.entries()], verifications: store.verifications, treatments: [...store.treatments.entries()], treatmentEvents: store.treatmentEvents, observationRevisions: [...store.observationRevisions.entries()], loads: store.loads }, null, 2), "utf8");
   } catch {
     // The local fallback is best effort; production must use Supabase.
   }
@@ -39,6 +40,7 @@ export function resetStore() {
   store.guides.clear();
   store.verifications.length = 0;
   store.treatments.clear();
+  store.treatmentEvents.length = 0;
   store.observationRevisions.clear();
   store.loads.length = 0;
 }
@@ -60,7 +62,9 @@ export async function saveLoad(fileName: string, fileHash: string, guides: Guia[
     results.forEach((result) => {
       store.verifications.push({ ...result, createdAt, loadId });
       const treatment = treatmentAfterVerification(store.treatments.get(result.id_guia), result.status);
+      const previousStatus = store.treatments.get(result.id_guia)?.status;
       if (treatment) store.treatments.set(result.id_guia, treatment);
+      store.treatmentEvents.push({ id_guia: result.id_guia, loadId, technicalStatus: result.status, previousStatus, newStatus: result.status === "OK" ? "RESOLVIDA" : treatment?.status ?? "ABERTA", event: result.status === "OK" ? "VERIFICACAO_OK" : "PENDENCIA_IDENTIFICADA", by: "sistema", createdAt });
       saveObservationRevision(result, createdAt);
   });
   store.loads.push({ id: loadId, fileName, fileHash, count: guides.length, createdAt });
@@ -81,6 +85,9 @@ export async function latestResults(): Promise<VerificationRecord[]> {
     for (const row of guides) store.guides.set(row.id_guia, row.dados as Guia);
     store.treatments.clear();
     for (const row of treatments) store.treatments.set(row.id_guia, { id_guia: row.id_guia, status: row.situacao, markedBy: row.marcado_por, markedAt: row.marcada_em });
+    const events = await readPages((from, to) => database.from("tratamento_eventos").select("id_guia,carga_id,status_tecnico,status_anterior,status_novo,evento,por_quem,comentario,criado_em").order("criado_em").range(from, to));
+    store.treatmentEvents.length = 0;
+    for (const row of events) store.treatmentEvents.push({ id_guia: row.id_guia, loadId: row.carga_id, technicalStatus: row.status_tecnico, previousStatus: row.status_anterior, newStatus: row.status_novo, event: row.evento, by: row.por_quem, comment: row.comentario ?? undefined, createdAt: row.criado_em });
     store.verifications.length = 0;
     for (const row of history) store.verifications.push({ ...(row.resultado as Resultado), createdAt: row.criada_em, loadId: row.carga_id });
     store.loads.length = 0;
@@ -111,9 +118,11 @@ export function treatmentAfterVerification(treatment: Treatment | undefined, sta
 }
 
 export function markTreatment(id_guia: string, markedBy = "Equipe"): Treatment | undefined {
+  const previous = store.treatments.get(id_guia);
   const current: Treatment = { id_guia, status: "AGUARDANDO_REVERIFICACAO", markedAt: new Date().toISOString(), markedBy };
   if (!store.guides.has(id_guia)) return undefined;
   store.treatments.set(id_guia, current);
+  store.treatmentEvents.push({ id_guia, previousStatus: previous?.status, newStatus: current.status, event: "CORRECAO_MARCADA", by: markedBy, createdAt: current.markedAt });
   persistLocal();
   return current;
 }
@@ -151,6 +160,8 @@ export async function markTreatmentAsync(id_guia: string, markedBy = "Equipe"): 
   const row = { id_guia, situacao: "AGUARDANDO_REVERIFICACAO", marcado_por: markedBy, marcada_em: new Date().toISOString() };
   const saved = await database.from("tratamentos").upsert(row).select("id_guia,situacao,marcado_por,marcada_em").single();
   if (saved.error || !saved.data) throw new Error("BANCO_INDISPONIVEL");
+  const event = await database.from("tratamento_eventos").insert({ id_guia, status_tecnico: latest.data.status, status_anterior: store.treatments.get(id_guia)?.status ?? "ABERTA", status_novo: "AGUARDANDO_REVERIFICACAO", evento: "CORRECAO_MARCADA", por_quem: markedBy, criada_em: row.marcada_em });
+  if (event.error) throw new Error("BANCO_INDISPONIVEL");
   return { id_guia: saved.data.id_guia, status: saved.data.situacao, markedBy: saved.data.marcado_por, markedAt: saved.data.marcada_em };
 }
 
