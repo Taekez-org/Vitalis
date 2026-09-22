@@ -1,12 +1,12 @@
-# Verificador de Guias V4
+# Vitalis - Verificador de Guias para diminuição de glosas Administrativas
 
-Projeto V4 da prova tecnica da Clinica Vitalis.
+Projeto da Clinica Vitalis.
 
 O mapa canonico para agentes e avaliadores esta em `docs/00-canonico/INDEX.md`; o contrato do produto entregue esta em `docs/00-canonico/STATUS-FINAL.md`.
 
 ## Objetivo
 
-Conferir um arquivo de guias antes do envio ao convenio, mostrar o que precisa ser corrigido, acompanhar o trabalho da recepcao e permitir que a Carla e o Dr. Renato acompanhem o risco em tempo real.
+Conferir um lote ou arquivo de guias antes do envio ao convênio, evidenciar o que precisa ser corrigido, acompanhar o trabalho da recepcao e decisão sobre ajustes e permitir que a Carla e o Dr. Renato acompanhem o risco em tempo real.
 
 ## Contexto da prova
 
