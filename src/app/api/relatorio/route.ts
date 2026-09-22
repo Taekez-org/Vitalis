@@ -11,7 +11,8 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   let periodo;
   try { periodo = periodoFromParams(params.get("inicio"), params.get("fim")); } catch { return Response.json({ erro: "PERIODO_INVALIDO", mensagem: "Informe datas no formato AAAA-MM-DD e um intervalo válido." }, { status: 400 }); }
-  const report = { ...calcularRelatorioPeriodo(store.verifications, store.guides, periodo), aguardando_reverificacao: [...store.treatments.values()].filter((item) => item.status === "AGUARDANDO_REVERIFICACAO").length, ultima_carga: store.loads.at(-1) ?? null, frescor: calcularFrescor(store.loads.at(-1)?.createdAt, hojeEmSaoPaulo()) };
+   const ultimaCarga = store.loads.at(-1) ?? null;
+   const report = { ...calcularRelatorioPeriodo(store.verifications, store.guides, periodo, store.treatments, store.treatmentEvents), ultima_carga: ultimaCarga, frescor: calcularFrescor(ultimaCarga?.createdAt, hojeEmSaoPaulo()) };
   if (new URL(request.url).searchParams.get("formato") === "texto") {
     return new Response(formatText(report), { headers: { "Content-Type": "text/plain; charset=utf-8" } });
   }

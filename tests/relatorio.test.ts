@@ -25,13 +25,44 @@ describe("relatorio historico", () => {
     expect(report.verificadas).toBe(1);
     expect(report.pendentes).toBe(1);
     expect(report.valor_em_risco).toBe(50);
+    expect(report.glosa_nao_recuperavel).toBe(50);
     expect(report.glosa_evitada).toBe(100);
   });
 
   it("gera um PDF real com o periodo e os cards financeiros", async () => {
-    const report = { inicio: "2026-09-03", fim: "2026-09-03", verificadas: 1, ok: 1, pendentes: 0, valor_em_risco: 0, glosa_evitada: 100, por_codigo: {}, por_unidade: {}, por_convenio: {} };
+     const report = { inicio: "2026-09-03", fim: "2026-09-03", verificadas: 1, ok: 1, pendentes: 0, valor_em_risco: 0, glosa_nao_recuperavel: 0, glosa_evitada: 100, aguardando_reverificacao: 0, por_codigo: {}, por_unidade: {}, por_convenio: {} };
     const pdf = await gerarRelatorioPdf(report, "2026-09-03T15:00:00.000Z");
     expect(new TextDecoder().decode(pdf.slice(0, 5))).toBe("%PDF-");
     expect(pdf.byteLength).toBeGreaterThan(500);
+  });
+
+  it("usa a maior exposicao do grupo e deduplica a glosa evitada", () => {
+    const records = [
+      record("G-1", "PENDENTE", "2026-09-01T15:00:00.000Z", 100),
+      record("G-2", "PENDENTE", "2026-09-01T15:01:00.000Z", 130),
+      record("G-1", "OK", "2026-09-03T15:00:00.000Z", 100),
+      record("G-2", "OK", "2026-09-03T15:01:00.000Z", 130),
+    ];
+    const guides = new Map([guide("G-1", "100"), guide("G-2", "130")].map((item) => [item.id_guia, { ...item, paciente: "MESMO", data_atendimento: "2026-09-01" }]));
+    const report = calcularRelatorioPeriodo(records, guides, { inicio: "2026-09-03", fim: "2026-09-03" });
+    expect(report.valor_em_risco).toBe(0);
+    expect(report.glosa_evitada).toBe(130);
+  });
+
+  it("nao contabiliza glosa evitada enquanto o grupo ainda tem pendencia", () => {
+    const records = [
+      record("G-1", "PENDENTE", "2026-09-01T15:00:00.000Z", 100),
+      record("G-2", "PENDENTE", "2026-09-01T15:01:00.000Z", 130),
+      record("G-1", "OK", "2026-09-03T15:00:00.000Z", 100),
+    ];
+    const guides = new Map([guide("G-1", "100"), guide("G-2", "130")].map((item) => [item.id_guia, { ...item, paciente: "MESMO", data_atendimento: "2026-09-01" }]));
+    const report = calcularRelatorioPeriodo(records, guides, { inicio: "2026-09-03", fim: "2026-09-03" });
+    expect(report.glosa_evitada).toBe(0);
+  });
+
+  it("usa a data do tratamento quando a marcacao antiga nao tem evento", () => {
+    const treatments = new Map([["G-1", { id_guia: "G-1", status: "AGUARDANDO_REVERIFICACAO" as const, markedAt: "2026-09-02T15:00:00.000Z", markedBy: "Equipe" }]]);
+    const report = calcularRelatorioPeriodo([record("G-1", "PENDENTE", "2026-09-01T15:00:00.000Z", 100)], new Map([["G-1", guide("G-1", "100")]]), { inicio: "2026-09-02", fim: "2026-09-02" }, treatments);
+    expect(report.aguardando_reverificacao).toBe(1);
   });
 });

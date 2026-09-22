@@ -9,6 +9,7 @@ export function pendenciaPublica(result: Resultado & { createdAt?: string }, gui
     valor: result.valor,
     motivos: result.motivos.map(publicReason),
     tratamento: { status: tratamento.status },
+    status_verificacao: result.status,
     verificada_em: result.createdAt,
   };
 }

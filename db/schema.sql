@@ -141,7 +141,6 @@ grant insert on public.tratamento_eventos to service_role;
 grant insert, update on public.observacao_revisoes to service_role;
 revoke all on function public.registrar_carga(text, text, jsonb, jsonb) from public, anon, authenticated;
 grant execute on function public.registrar_carga(text, text, jsonb, jsonb) to service_role;
-revoke execute on function public.rls_auto_enable() from public, anon, authenticated;
 
 do $$ begin
   alter publication supabase_realtime add table public.cargas;

@@ -113,7 +113,7 @@ export async function readObservation(observation: string, context: ObservationC
   if (!observation.trim()) return { source: "desligada", reason: "SEM_OBSERVACAO", promptVersion: observationPromptVersion };
   if (!leitorIaLigado()) return { source: "desligada", reason: "LEITOR_IA_OFF", promptVersion: observationPromptVersion };
   try {
-    if (reader) return { source: "groq", reading: await reader.read(observation, context), promptVersion: observationPromptVersion, model: "fake" };
+    if (reader) return { source: "groq", reading: await readWithRetry(reader, observation, context), promptVersion: observationPromptVersion, model: "fake" };
     const gemini = geminiModels();
     const providers = [
       ...(gemini?.models.map((model) => ({ reader: new GeminiObservationReader(model), model })) ?? []),

@@ -10,11 +10,17 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   let periodo;
   try { periodo = periodoFromParams(params.get("inicio"), params.get("fim")); } catch { return Response.json({ erro: "PERIODO_INVALIDO", mensagem: "Informe datas no formato AAAA-MM-DD e um intervalo válido." }, { status: 400 }); }
-  const report = calcularRelatorioPeriodo(store.verifications, store.guides, periodo);
+   const convenio = params.get("convenio")?.trim() || "";
+   const guides = convenio ? new Map([...store.guides.entries()].filter(([, guide]) => guide.convenio === convenio)) : store.guides;
+   const records = convenio ? store.verifications.filter((record) => guides.has(record.id_guia)) : store.verifications;
+   const treatments = convenio ? new Map([...store.treatments.entries()].filter(([id]) => guides.has(id))) : store.treatments;
+   const events = convenio ? store.treatmentEvents.filter((event) => guides.has(event.id_guia)) : store.treatmentEvents;
+   const report = calcularRelatorioPeriodo(records, guides, periodo, treatments, events);
   const ultimaCarga = store.loads.at(-1) ?? null;
   return Response.json({
-    ...report,
-    aguardando_reverificacao: [...store.treatments.values()].filter((item) => item.status === "AGUARDANDO_REVERIFICACAO").length,
+     ...report,
+     convenio: convenio || "todos",
+     convenios: [...new Set([...store.guides.values()].map((guide) => guide.convenio))].sort(),
     ultima_carga: ultimaCarga,
     frescor: calcularFrescor(ultimaCarga?.createdAt, hojeEmSaoPaulo()),
   });

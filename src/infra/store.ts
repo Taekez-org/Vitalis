@@ -52,6 +52,8 @@ export async function saveLoad(fileName: string, fileHash: string, guides: Guia[
   if (database) {
     const result = await database.rpc("registrar_carga", { p_nome: fileName, p_hash: fileHash, p_guias: guides, p_verificacoes: results });
     if (result.error || !result.data) throw new Error("BANCO_INDISPONIVEL");
+    const currentReviewKeys = new Set(results.filter((item) => item.observacao?.chave && item.observacao.origem !== "desligada" && item.observacao.classe !== "rotina").map((item) => `${item.id_guia}:${item.observacao!.chave}`));
+    await closeObservationRevisionsForGuides(database, guides.map((guide) => guide.id_guia), currentReviewKeys);
     await persistObservationRevisions(database, results);
     return { loadId: result.data.carga_id as string, jaExistia: result.data.ja_existia as boolean };
   }
@@ -79,8 +81,7 @@ export async function latestResults(): Promise<VerificationRecord[]> {
     const history = await readPages((from, to) => database.from("verificacoes").select("id_guia,carga_id,status,resultado,valor,criada_em").order("criada_em").range(from, to));
     const guides = await readPages((from, to) => database.from("guias").select("id_guia,dados").range(from, to));
     const treatments = await readPages((from, to) => database.from("tratamentos").select("id_guia,situacao,marcado_por,marcada_em").range(from, to));
-    const loads = await database.from("cargas").select("id,nome_arquivo,quantidade_guias,criada_em").order("criada_em").range(0, 999);
-    if (loads.error) throw new Error("BANCO_INDISPONIVEL");
+     const loads = await readPages((from, to) => database.from("cargas").select("id,nome_arquivo,quantidade_guias,criada_em").order("criada_em").order("id").range(from, to));
     store.guides.clear();
     for (const row of guides) store.guides.set(row.id_guia, row.dados as Guia);
     store.treatments.clear();
@@ -94,7 +95,7 @@ export async function latestResults(): Promise<VerificationRecord[]> {
     store.verifications.length = 0;
     for (const row of history) store.verifications.push({ ...(row.resultado as Resultado), createdAt: row.criada_em, loadId: row.carga_id });
     store.loads.length = 0;
-    for (const row of loads.data ?? []) store.loads.push({ id: row.id, fileName: row.nome_arquivo, count: row.quantidade_guias, createdAt: row.criada_em });
+     for (const row of loads) store.loads.push({ id: row.id, fileName: row.nome_arquivo, count: row.quantidade_guias, createdAt: row.criada_em });
     const latest = new Map<string, VerificationRecord>();
     for (const row of history) {
       const candidate = { ...(row.resultado as Resultado), status: row.status as Resultado["status"], createdAt: row.criada_em, loadId: row.carga_id };
@@ -162,6 +163,17 @@ async function persistObservationRevisions(database: NonNullable<ReturnType<type
   if (saved.error) throw new Error("BANCO_INDISPONIVEL");
 }
 
+async function closeObservationRevisionsForGuides(database: NonNullable<ReturnType<typeof supabase>>, idGuias: string[], currentReviewKeys: Set<string>) {
+  if (!idGuias.length) return;
+  const open = await database.from("observacao_revisoes").select("id_guia,chave").in("id_guia", idGuias).eq("status", "ABERTA");
+  if (open.error) throw new Error("BANCO_INDISPONIVEL");
+  const toClose = (open.data ?? []).filter((row) => !currentReviewKeys.has(`${row.id_guia}:${row.chave}`));
+  for (const row of toClose) {
+    const saved = await database.from("observacao_revisoes").update({ status: "RESOLVIDA", resolvida_em: new Date().toISOString(), resolvida_por: "sistema-reverificacao" }).eq("id_guia", row.id_guia).eq("chave", row.chave).eq("status", "ABERTA");
+    if (saved.error) throw new Error("BANCO_INDISPONIVEL");
+  }
+}
+
 export function listObservationRevisions(): ObservationRevision[] {
   return [...store.observationRevisions.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
@@ -201,13 +213,15 @@ export async function resolveObservationRevisionAsync(id_guia: string, chave: st
 export async function markTreatmentAsync(id_guia: string, markedBy = "Equipe"): Promise<Treatment | undefined> {
   const database = supabase();
   if (!database) return markTreatment(id_guia, markedBy);
-  const latest = await database.from("ultima_verificacao").select("status").eq("id_guia", id_guia).maybeSingle();
+   const latest = await database.from("ultima_verificacao").select("status,carga_id").eq("id_guia", id_guia).maybeSingle();
   if (latest.error) throw new Error("BANCO_INDISPONIVEL");
   if (!latest.data || latest.data.status === "OK") return undefined;
-  const row = { id_guia, situacao: "AGUARDANDO_REVERIFICACAO", marcado_por: markedBy, marcada_em: new Date().toISOString() };
+   const previous = await database.from("tratamentos").select("situacao").eq("id_guia", id_guia).maybeSingle();
+   if (previous.error) throw new Error("BANCO_INDISPONIVEL");
+   const row = { id_guia, situacao: "AGUARDANDO_REVERIFICACAO", marcado_por: markedBy, marcada_em: new Date().toISOString() };
   const saved = await database.from("tratamentos").upsert(row).select("id_guia,situacao,marcado_por,marcada_em").single();
   if (saved.error || !saved.data) throw new Error("BANCO_INDISPONIVEL");
-  const event = await database.from("tratamento_eventos").insert({ id_guia, status_tecnico: latest.data.status, status_anterior: store.treatments.get(id_guia)?.status ?? "ABERTA", status_novo: "AGUARDANDO_REVERIFICACAO", evento: "CORRECAO_MARCADA", por_quem: markedBy, criada_em: row.marcada_em });
+   const event = await database.from("tratamento_eventos").insert({ id_guia, carga_id: latest.data.carga_id, status_tecnico: latest.data.status, status_anterior: previous.data?.situacao ?? "ABERTA", status_novo: "AGUARDANDO_REVERIFICACAO", evento: "CORRECAO_MARCADA", por_quem: markedBy, criado_em: row.marcada_em });
   if (event.error) throw new Error("BANCO_INDISPONIVEL");
   return { id_guia: saved.data.id_guia, status: saved.data.situacao, markedBy: saved.data.marcado_por, markedAt: saved.data.marcada_em };
 }

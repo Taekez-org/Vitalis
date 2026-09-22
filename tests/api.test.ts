@@ -6,6 +6,8 @@ import { latestResults, markTreatment, resetStore, saveLoad, store, treatmentAft
 import { parseGuides, verifyBatch } from "../src/core/batch";
 import { carregarDemo } from "./helpers/demo";
 
+type PendingBody = { pendencias: { id_guia: string; status_verificacao?: string; tratamento: { status: string } }[] };
+
 describe("fila de pendencias", () => {
   beforeEach(async () => { await carregarDemo(); });
   it("filtra duplicidades sem misturar conflitos", async () => {
@@ -38,6 +40,30 @@ describe("fila de pendencias", () => {
     expect(treatmentAfterVerification({ ...treatment, status: "RESOLVIDA" }, "PENDENTE")?.status).toBe("ABERTA");
     expect(treatmentAfterVerification({ ...treatment, status: "EM_TRATAMENTO" }, "PENDENTE")?.status).toBe("EM_TRATAMENTO");
     expect(treatmentAfterVerification(undefined, "OK")).toBeUndefined();
+  });
+
+  it("mantem a guia na fila durante a correcao e resolve apenas apos OK", async () => {
+    const id = "G-2608-0031";
+    expect(markTreatment(id)?.status).toBe("AGUARDANDO_REVERIFICACAO");
+    let response = await getPendencias(new Request("http://localhost/api/pendencias"));
+    let body = await response.json() as PendingBody;
+    expect(body.pendencias.find((item) => item.id_guia === id)).toMatchObject({ status_verificacao: "PENDENTE", tratamento: { status: "AGUARDANDO_REVERIFICACAO" } });
+
+    const guides = parseGuides(readFileSync("data/guias.csv", "utf8"));
+    const original = verifyBatch(guides, { modo: "lote", data_referencia: "2026-08-31" });
+    const stillBroken = original.map((result) => result.id_guia === id ? { ...result, motivos: [{ ...result.motivos[0]! }] } : result);
+    await saveLoad("still-broken.csv", "hash-still-broken", guides, stillBroken);
+    expect(store.treatments.get(id)?.status).toBe("EM_TRATAMENTO");
+    response = await getPendencias(new Request("http://localhost/api/pendencias"));
+    body = await response.json() as PendingBody;
+    expect(body.pendencias.find((item) => item.id_guia === id)?.tratamento.status).toBe("EM_TRATAMENTO");
+
+    const fixed = original.map((result) => result.id_guia === id ? { ...result, status: "OK" as const, motivos: [] } : result);
+    await saveLoad("fixed.csv", "hash-fixed", guides, fixed);
+    response = await getPendencias(new Request("http://localhost/api/pendencias"));
+    body = await response.json() as PendingBody;
+    expect(body.pendencias.some((item) => item.id_guia === id)).toBe(false);
+    expect(store.treatments.get(id)?.status).toBe("RESOLVIDA");
   });
 
   it("não duplica uma carga reenviada pelo mesmo hash", async () => {

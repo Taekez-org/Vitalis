@@ -6,6 +6,7 @@ import { riskValue } from "../src/core/metrics";
 
 const root = resolve(__dirname, "..");
 const csv = readFileSync(resolve(root, "data/guias.csv"), "utf8");
+const adjustedCsv = readFileSync(resolve(root, "data/guias-ajustadas.csv"), "utf8");
 
 describe("golden de agosto", () => {
   it("verifica as 80 guias e fecha os numeros principais", () => {
@@ -30,5 +31,16 @@ describe("golden de agosto", () => {
     expect(codes("G-2608-0060")).toContain("CONFLITO_AUTORIZACAO");
     expect(codes("G-2608-0017")).not.toContain("DUPLICADA");
     expect(codes("G-2608-0060")).not.toContain("DUPLICADA");
+  });
+
+  it("corrige o que e corrigivel e preserva bloqueios de glosa", () => {
+    const guides = parseGuides(adjustedCsv);
+    const results = verifyBatch(guides, { modo: "lote", data_referencia: "2026-08-31" });
+    expect(results).toHaveLength(80);
+    expect(results.filter((result) => result.status === "OK")).toHaveLength(49);
+    expect(results.filter((result) => result.status === "PENDENTE")).toHaveLength(31);
+    expect(riskValue(results, new Map(guides.map((guide) => [guide.id_guia, guide])))).toBe(2116);
+    const codes = new Set(results.flatMap((result) => result.motivos.map((reason) => reason.codigo)));
+    expect(codes).toEqual(new Set(["AUT_VENCIDA", "PROCEDIMENTO_NAO_COBERTO", "SESSAO_ACIMA_DO_LIMITE", "CONFLITO_AUTORIZACAO", "DUPLICADA", "TXT_AUTORIZACAO_NOVA_NAO_LANCADA", "TXT_FATURAR_PARTICULAR", "TXT_PROCEDIMENTO_DIFERENTE"]));
   });
 });

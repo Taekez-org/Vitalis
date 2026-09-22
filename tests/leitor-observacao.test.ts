@@ -38,4 +38,15 @@ describe("leitor de observacao", () => {
     process.env.GROQ_API_KEY = oldKey;
     process.env.GROQ_MODEL = oldModel;
   });
+
+  it("repete falhas transitorias do leitor antes de marcar como nao lida", async () => {
+    const old = process.env.LEITOR_IA;
+    process.env.LEITOR_IA = "on";
+    let attempts = 0;
+    const reader = { read: vi.fn(async () => { attempts += 1; if (attempts < 3) throw new Error("GROQ_HTTP_503"); return { classe: "rotina" as const, sinais: [], motivo: "" }; }) };
+    const result = await readObservation("texto", context, reader);
+    expect(result.source).toBe("groq");
+    expect(reader.read).toHaveBeenCalledTimes(3);
+    process.env.LEITOR_IA = old;
+  }, 5000);
 });

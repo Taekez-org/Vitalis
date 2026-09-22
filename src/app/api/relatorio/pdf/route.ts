@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   let periodo;
   try { periodo = periodoFromParams(params.get("inicio"), params.get("fim")); } catch { return Response.json({ erro: "PERIODO_INVALIDO", mensagem: "Informe datas no formato AAAA-MM-DD e um intervalo válido." }, { status: 400 }); }
   await latestResults();
-  const report = calcularRelatorioPeriodo(store.verifications, store.guides, periodo);
+   const report = calcularRelatorioPeriodo(store.verifications, store.guides, periodo, store.treatments, store.treatmentEvents);
   const pdf = await gerarRelatorioPdf(report, new Date().toISOString());
   return new Response(Buffer.from(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="relatorio-vitalis-${periodo.inicio}-${periodo.fim}.pdf"`, "Cache-Control": "no-store" } });
 }
