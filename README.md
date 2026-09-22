@@ -8,6 +8,28 @@ O mapa canonico para agentes e avaliadores esta em `docs/00-canonico/INDEX.md`; 
 
 Conferir um arquivo de guias antes do envio ao convenio, mostrar o que precisa ser corrigido, acompanhar o trabalho da recepcao e permitir que a Carla e o Dr. Renato acompanhem o risco em tempo real.
 
+## Contexto da prova
+
+A Vitalis e uma rede ficticia de fisioterapia e ortopedia com tres unidades, aproximadamente 900 guias por mes e faturamento mensal de R$ 780 mil, sendo 58% de convenios. O problema central e conferir as guias antes do envio, reduzindo glosas causadas por preenchimento incorreto e autorizacoes vencidas.
+
+Materiais fornecidos:
+
+- `data/guias.csv`: 80 guias ficticias de agosto.
+- `data/regras_convenio.json`: regras dos tres convenios.
+- Dicionario de dados das colunas da guia.
+
+## Premissas adotadas
+
+- Cada linha do CSV representa uma guia referente a um atendimento.
+- O mesmo numero de autorizacao pode aparecer em varias guias, pois uma autorizacao cobre varias sessoes.
+- Assinatura do paciente nao foi definida nos materiais e nao e validada pela solucao.
+- A correcao acontece no sistema de gestao, por edicao ou cancelamento e reemissao conforme o procedimento da clinica; a solucao nao escolhe esse fluxo nem escreve de volta.
+- A conferencia pode ser executada em qualquer frequencia por novos lotes CSV, desde que ocorra antes do envio ao convenio.
+- A API do sistema de gestao foi tratada como fonte de exportacao/read-only, pois nao havia integracao real disponivel para a prova.
+- O envio final ao convenio permanece fora da solucao.
+- Os dados sao ficticios e nenhum segredo ou chave e armazenado no repositorio.
+- A classificacao de risco de glosa e preventiva e nao substitui a decisao final do convenio.
+
 ## Arquitetura
 
 ```mermaid
