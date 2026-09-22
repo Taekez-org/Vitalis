@@ -346,14 +346,17 @@ O contrato da Skill esta em `skills/conferir-guia/SKILL.md` e os exemplos em `sk
 
 Para instalar o MCP em um cliente que aceite servidores HTTP, adicione a URL acima como servidor remoto. O MCP nao recebe a `service_role`; a chave fica somente na Vercel e e usada pelas ferramentas no servidor.
 
-## Como fiz
+## Ferramentas e metodo
 
-- Next.js, TypeScript e Supabase: mantive a entrega pequena, com API no servidor e persistencia append-only.
-- As regras deterministicas ficam no nucleo; IA nao decide cobertura, validade, valor ou prazo.
-- Separei `status_verificacao` de `status_tratamento` para que o clique humano nunca transforme uma pendencia em guia OK.
-- Usei polling em vez de Realtime porque as tabelas ficam sem leitura publica por RLS; assim o dashboard continua explicavel e seguro.
-- O leitor de observacoes ficou opcional e desligado por padrao. Quando ativado, tenta Gemini, OpenRouter e Groq em cascata; sua resposta nao muda a decisao deterministica.
-- O que ficou fora: escrita no sistema de gestao, WhatsApp, autenticacao de usuarios e cron de reverificacao. O CSV corrigido continua sendo a entrada operacional definida para a prova.
+- **Claude:** especificacao, criterios de aceite, plano de testes e revisao documental.
+- **OpenCode:** implementacao, testes, auditoria do Supabase e publicacao.
+- **ChatGPT:** auditoria critica de arquitetura, APIs, dashboard, PDF e metricas.
+- **Stack:** Next.js 15, React 19, TypeScript, Supabase/Postgres, Vercel, Zod, Vitest, ESLint, React PDF, PapaParse e `mcp-handler`.
+- **IA opcional:** Gemini, OpenRouter e Groq em cascata para observacoes; nunca decide o resultado tecnico.
+
+Decisoes principais: usar CSV como entrada e reverificacao; manter o nucleo deterministico como fonte de verdade; separar `status_verificacao` de `status_tratamento`; exigir nova carga para resolver pendencias; persistir historico append-only; deduplicar risco por paciente, data e procedimento; usar polling em vez de Realtime; nao expor dados pessoais; e fazer a IA falhar com seguranca em `nao_lida`.
+
+Tempo total de desenvolvimento: **[preencher com o tempo cronometrado]**.
 
 Para publicar na Vercel, configure `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` como variaveis de ambiente privadas, aplique `db/schema.sql` no projeto Supabase e execute a validacao manual descrita em `docs/03-operacao/TESTE-MCP-CLAUDE.md`.
 
@@ -397,6 +400,12 @@ flowchart TB
 ```
 
 No lote, no maximo dois trabalhos rodam em paralelo e a etapa possui orçamento total de 45 segundos. Leituras iguais dentro da mesma carga compartilham o mesmo trabalho. Se o orçamento termina ou todos os provedores falham, o resultado vira `nao_lida`; a guia continua submetida somente aos motivos determinísticos.
+
+## Estado do MCP
+
+O endpoint MCP e o Skill estao implementados e documentados, mas esta parte permanece **parcial para a entrega final**. `consultar_regra`, `verificar_guia` e `consultar_pendencias` existem e estao cobertos pelos testes basicos de inicializacao e listagem de ferramentas.
+
+Limitacao conhecida: `verificar_guia` recebe os campos completos da guia e nao busca automaticamente uma guia persistida apenas pelo numero. Para consultar uma guia ja carregada por ID, use `consultar_pendencias`. A validacao final do MCP com um cliente externo e o smoke test de producao ainda ficam pendentes.
 
 ## Como testei
 
