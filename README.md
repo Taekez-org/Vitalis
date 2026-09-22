@@ -336,12 +336,12 @@ Exemplo de configuracao para um cliente MCP HTTP:
 ```json
 {
   "verificador-vitalis": {
-    "url": "https://SEU-DOMINIO/api/mcp"
+    "url": "https://vitalis-ei.vercel.app/api/mcp"
   }
 }
 ```
 
-Localmente, use `http://localhost:3000/api/mcp`. Em um cliente MCP HTTP, a URL publicada e `https://SEU-DOMINIO/api/mcp`.
+Localmente, use `http://localhost:3000/api/mcp`. Em um cliente MCP HTTP, a URL publicada e `https://vitalis-ei.vercel.app/api/mcp`.
 O contrato da Skill esta em `skills/conferir-guia/SKILL.md` e os exemplos em `skills/conferir-guia/EXEMPLOS.md`.
 
 Para instalar o MCP em um cliente que aceite servidores HTTP, adicione a URL acima como servidor remoto. O MCP nao recebe a `service_role`; a chave fica somente na Vercel e e usada pelas ferramentas no servidor.
