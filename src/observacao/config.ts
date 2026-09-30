@@ -2,12 +2,14 @@ export function leitorIaLigado(): boolean {
   return process.env.LEITOR_IA === "on";
 }
 
-export function groqConfig(): { apiKey: string; model: string } | null {
+export function groqConfig(): { apiKeys: string[]; model: string } | null {
   if (!leitorIaLigado()) return null;
-  const apiKey = process.env.GROQ_API_KEY;
-  const model = process.env.GROQ_MODEL;
-  if (!apiKey || !model) throw new Error("LEITOR_IA_CONFIGURACAO_AUSENTE");
-  return { apiKey, model };
+  const model = process.env.GROQ_MODEL?.trim();
+  const apiKeys = [process.env.GROQ_API_KEY, process.env.GROQ_API_KEY2, process.env.GROQ_API_KEY3]
+    .map((key) => key?.trim())
+    .filter((key, index, list): key is string => Boolean(key) && list.indexOf(key) === index);
+  if (!apiKeys.length || !model) return null;
+  return { apiKeys, model };
 }
 
 export function geminiConfig(): { apiKey: string; model: string } | null {

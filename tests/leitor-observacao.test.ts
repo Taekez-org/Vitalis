@@ -39,6 +39,55 @@ describe("leitor de observacao", () => {
     process.env.GROQ_MODEL = oldModel;
   });
 
+  it("troca para a proxima chave do Groq quando a anterior expirou", async () => {
+    const saved = ["LEITOR_IA", "GROQ_API_KEY", "GROQ_API_KEY2", "GROQ_API_KEY3", "GROQ_MODEL"].map((name) => [name, process.env[name]] as const);
+    process.env.LEITOR_IA = "on";
+    process.env.GROQ_API_KEY = "chave-expirada";
+    process.env.GROQ_API_KEY2 = "chave-boa";
+    delete process.env.GROQ_API_KEY3;
+    process.env.GROQ_MODEL = "test-only-model";
+    const usadas: string[] = [];
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+      const auth = String((init?.headers as Record<string, string>).Authorization);
+      usadas.push(auth);
+      if (auth.endsWith("chave-expirada")) return new Response("{}", { status: 401 });
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ classe: "rotina", sinais: [], motivo: "" }) } }] }), { status: 200 });
+    });
+    const reading = await new GroqObservationReader().read("texto", context);
+    expect(reading.classe).toBe("rotina");
+    expect(usadas).toEqual(["Bearer chave-expirada", "Bearer chave-boa"]);
+    fetchMock.mockRestore();
+    for (const [name, value] of saved) { if (value === undefined) delete process.env[name]; else process.env[name] = value; }
+  });
+
+  it("falha com o ultimo erro quando todas as chaves do Groq sao recusadas", async () => {
+    const saved = ["LEITOR_IA", "GROQ_API_KEY", "GROQ_API_KEY2", "GROQ_API_KEY3", "GROQ_MODEL"].map((name) => [name, process.env[name]] as const);
+    process.env.LEITOR_IA = "on";
+    process.env.GROQ_API_KEY = "a";
+    process.env.GROQ_API_KEY2 = "b";
+    delete process.env.GROQ_API_KEY3;
+    process.env.GROQ_MODEL = "test-only-model";
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response("{}", { status: 401 }));
+    await expect(new GroqObservationReader().read("texto", context)).rejects.toThrow("GROQ_HTTP_401");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    fetchMock.mockRestore();
+    for (const [name, value] of saved) { if (value === undefined) delete process.env[name]; else process.env[name] = value; }
+  });
+
+  it("nao derruba os outros provedores quando o Groq esta sem chave", async () => {
+    const saved = ["LEITOR_IA", "GROQ_API_KEY", "GROQ_API_KEY2", "GROQ_API_KEY3", "GROQ_MODEL", "GEMINI_API_KEY", "OPENROUTER_API_KEY"].map((name) => [name, process.env[name]] as const);
+    process.env.LEITOR_IA = "on";
+    delete process.env.GROQ_API_KEY; delete process.env.GROQ_API_KEY2; delete process.env.GROQ_API_KEY3; delete process.env.GROQ_MODEL;
+    process.env.GEMINI_API_KEY = "gemini-teste";
+    delete process.env.OPENROUTER_API_KEY;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ classe: "rotina", sinais: [], motivo: "" }) }] } }] }), { status: 200 }));
+    const result = await readObservation("texto", context);
+    expect(result.source).toBe("groq");
+    expect(result.reading?.classe).toBe("rotina");
+    fetchMock.mockRestore();
+    for (const [name, value] of saved) { if (value === undefined) delete process.env[name]; else process.env[name] = value; }
+  });
+
   it("repete falhas transitorias do leitor antes de marcar como nao lida", async () => {
     const old = process.env.LEITOR_IA;
     process.env.LEITOR_IA = "on";

@@ -39,4 +39,34 @@ describe("contrato seguro da observacao", () => {
     process.env.GROQ_API_KEY = oldKey;
     process.env.GROQ_MODEL = oldModel;
   });
+
+  it("nao lanca erro quando a chave ou o modelo do Groq faltam com a IA ligada", () => {
+    const saved = { flag: process.env.LEITOR_IA, key: process.env.GROQ_API_KEY, model: process.env.GROQ_MODEL };
+    process.env.LEITOR_IA = "on";
+    delete process.env.GROQ_API_KEY;
+    process.env.GROQ_MODEL = "modelo-teste";
+    expect(groqConfig()).toBeNull();
+    process.env.GROQ_API_KEY = "chave-teste";
+    delete process.env.GROQ_MODEL;
+    expect(groqConfig()).toBeNull();
+    process.env.LEITOR_IA = saved.flag;
+    process.env.GROQ_API_KEY = saved.key;
+    process.env.GROQ_MODEL = saved.model;
+  });
+
+  it("lista as chaves do Groq em ordem, sem vazias nem repetidas", () => {
+    const saved = ["GROQ_API_KEY", "GROQ_API_KEY2", "GROQ_API_KEY3"].map((name) => [name, process.env[name]] as const);
+    process.env.LEITOR_IA = "on";
+    process.env.GROQ_MODEL = "modelo-teste";
+    process.env.GROQ_API_KEY = "a";
+    process.env.GROQ_API_KEY2 = "  ";
+    process.env.GROQ_API_KEY3 = "a";
+    expect(groqConfig()?.apiKeys).toEqual(["a"]);
+    process.env.GROQ_API_KEY2 = "b";
+    process.env.GROQ_API_KEY3 = "c";
+    expect(groqConfig()?.apiKeys).toEqual(["a", "b", "c"]);
+    delete process.env.GROQ_API_KEY;
+    expect(groqConfig()?.apiKeys).toEqual(["b", "c"]);
+    for (const [name, value] of saved) { if (value === undefined) delete process.env[name]; else process.env[name] = value; }
+  });
 });

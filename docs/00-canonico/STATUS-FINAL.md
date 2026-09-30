@@ -206,6 +206,8 @@ A cascata configurada e:
 2. OpenRouter.
 3. Groq.
 
+No Groq, a chave pode ser rotacionada: `GROQ_API_KEY`, `GROQ_API_KEY2` e `GROQ_API_KEY3` sao tentadas em ordem. Uma chave recusada (HTTP 401, 403 ou 429) faz o leitor passar para a proxima. Sem chave ou sem `GROQ_MODEL`, o Groq e apenas ignorado na cascata e nao impede Gemini nem OpenRouter.
+
 O leitor:
 
 - processa observacoes nao vazias;
@@ -256,7 +258,7 @@ npm.cmd run build
 
 Estado atual:
 
-- 31 testes passando em 10 arquivos.
+- 38 testes passando em 10 arquivos.
 - Typecheck passando.
 - ESLint passando.
 - Build passando.
@@ -272,7 +274,7 @@ Cobertura principal:
 - Idempotencia de carga por hash.
 - Privacidade da fila e exportacao.
 - Leitor de observacoes e revisoes.
-- Ferramentas MCP e Skill; o endpoint HTTP autenticado deve ser validado separadamente em ambiente de integracao.
+- Ferramentas MCP e Skill; o endpoint HTTP autenticado foi validado em producao em 30/09/2026 com `consultar_pendencias`, `consultar_regra` e `verificar_guia`.
 - Geracao de PDF.
 
 ## Fixtures oficiais de validacao

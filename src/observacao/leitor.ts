@@ -20,30 +20,37 @@ export interface ObservationReader {
 export class GroqObservationReader implements ObservationReader {
   async read(observation: string, context: ObservationContext): Promise<ObservationReading> {
     const config = groqConfig();
-    if (!config) throw new Error("LEITOR_IA_DESLIGADO");
+    if (!config) throw new Error("GROQ_CONFIGURACAO_AUSENTE");
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
-      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        signal: controller.signal,
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.apiKey}` },
-        body: JSON.stringify({
-          model: config.model,
-          temperature: 0,
-          max_tokens: 200,
-          response_format: { type: "json_object" },
-          messages: [
-            { role: "system", content: observationSystemPrompt },
-            { role: "user", content: userPrompt(mascararObservacao(observation), context) },
-          ],
-        }),
+      const body = JSON.stringify({
+        model: config.model,
+        temperature: 0,
+        max_tokens: 200,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: observationSystemPrompt },
+          { role: "user", content: userPrompt(mascararObservacao(observation), context) },
+        ],
       });
-      if (!response.ok) throw new Error(`GROQ_HTTP_${response.status}`);
-      const payload = await response.json() as { choices?: { message?: { content?: string } }[] };
-      const content = payload.choices?.[0]?.message?.content;
-      if (!content) throw new Error("GROQ_RESPOSTA_VAZIA");
-      return parseObservationReading(JSON.parse(content));
+      for (const [index, apiKey] of config.apiKeys.entries()) {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          signal: controller.signal,
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          body,
+        });
+        if (!response.ok) {
+          if (keyRejected(response.status) && index < config.apiKeys.length - 1) continue;
+          throw new Error(`GROQ_HTTP_${response.status}`);
+        }
+        const payload = await response.json() as { choices?: { message?: { content?: string } }[] };
+        const content = payload.choices?.[0]?.message?.content;
+        if (!content) throw new Error("GROQ_RESPOSTA_VAZIA");
+        return parseObservationReading(JSON.parse(content));
+      }
+      throw new Error("GROQ_CONFIGURACAO_AUSENTE");
     } finally {
       clearTimeout(timer);
     }
@@ -147,6 +154,10 @@ async function readWithRetry(reader: ObservationReader, observation: string, con
     }
   }
   throw new Error("IA_LEITURA_INDISPONIVEL");
+}
+
+function keyRejected(status: number): boolean {
+  return status === 401 || status === 403 || status === 429;
 }
 
 function retryableProviderError(message: string): boolean {

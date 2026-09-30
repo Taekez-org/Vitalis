@@ -6,7 +6,7 @@ O mapa canonico para agentes e avaliadores esta em `docs/00-canonico/INDEX.md`; 
 
 ## Objetivo
 
-Conferir um lote ou arquivo de guias antes do envio ao convênio, evidenciar o que precisa ser corrigido, acompanhar o trabalho da recepcao e decisão sobre ajustes e permitir que a Carla e o Dr. Renato acompanhem o risco em tempo real.
+Conferir um lote ou arquivo de guias antes do envio ao convênio, evidenciar o que precisa ser corrigido, acompanhar o trabalho da recepcao e as decisões sobre ajustes e permitir que a Carla e o Dr. Renato acompanhem o risco quase em tempo real, com atualização automática do dashboard **a cada 5 segundos**.
 
 ## Contexto da prova
 
@@ -101,7 +101,7 @@ O codigo da aplicacao, do MCP e da Skill esta nesta pasta. Os dados ficticios vi
 - `tratamento_eventos` guarda a trilha append-only de cada transicao, com lote, data e responsavel.
 - Uma guia so sai da fila quando uma nova verificacao retorna `OK`.
 - O check humano significa "corrigida na origem, aguardando reverificacao".
-- Dashboard atualiza por polling a cada 5 segundos; nao depende de Realtime.
+- **Dashboard atualiza sozinho a cada 5 segundos** (polling); nao depende de Realtime.
 - O historico pode ser consultado em `/api/historico`, com filtros por periodo, guia, evento, responsavel e estado.
 - Pendencias tem filtros avancados, exportacao CSV e tempo de resolucao.
 - Dashboard tem graficos simples sem biblioteca adicional.
@@ -214,7 +214,7 @@ Fila operacional com motivo, campo, acao, responsavel, classificacao visual de r
 
 ### `/dashboard`
 
-Guias verificadas, OK, pendentes, valor em risco, risco de glosa não recuperável, glosa evitada, tratamento, aguardando reverificação, gráficos e última carga. O filtro por convênio afeta o dashboard; o PDF continua sendo o resumo geral do período.
+Atualiza automaticamente a cada 5 segundos. Mostra guias verificadas, OK, pendentes, valor em risco, risco de glosa não recuperável, glosa evitada, tratamento, aguardando reverificação, gráficos e última carga. O filtro por convênio afeta o dashboard; o PDF continua sendo o resumo geral do período.
 
 ### Endpoints principais
 
@@ -267,6 +267,7 @@ O Supabase guarda o histórico persistente e o estado operacional da aplicação
 | `tratamentos` | Estado operacional atual: `ABERTA`, `EM_TRATAMENTO`, `AGUARDANDO_REVERIFICACAO` ou `RESOLVIDA`. |
 | `tratamento_eventos` | Histórico append-only das transições técnicas e operacionais. |
 | `observacao_revisoes` | Revisões humanas de observações lidas ou não lidas pelo leitor de IA. |
+| `observacao_fila` | Fila de trabalhos de leitura de observações pelo leitor de IA. Guarda, por carga e guia, a guia e o resultado técnico usados como contexto, o `status` do trabalho (`PENDENTE`, `PROCESSANDO`, `CONCLUIDA` ou `FALHOU`), o número de `tentativas`, o `erro` e quando foi processada. Há uma linha única por `carga_id` + `id_guia`. É separada das pendências técnicas e nunca altera `OK` ou `PENDENTE`. Criada pela migração `add_observation_queue`; o código atual desta pasta não lê nem grava nela, e ela ainda não consta em `db/schema.sql`. |
 | `ultima_verificacao` | View que seleciona a verificação mais recente de cada guia. |
 
 `db/README.md` documenta o modelo completo. `db/schema.sql` contém tabelas, índices, view, RPC, triggers e permissões. `db/auditoria.sql` contém consultas somente leitura para conferir cargas, contagens, estados, integridade e eventos no projeto publicado.
@@ -356,13 +357,13 @@ Para instalar o MCP em um cliente que aceite servidores HTTP, adicione a URL aci
 
 Decisoes principais: usar CSV como entrada e reverificacao; manter o nucleo deterministico como fonte de verdade; separar `status_verificacao` de `status_tratamento`; exigir nova carga para resolver pendencias; persistir historico append-only; deduplicar risco por paciente, data e procedimento; usar polling em vez de Realtime; nao expor dados pessoais; e fazer a IA falhar com seguranca em `nao_lida`.
 
-Tempo total de desenvolvimento: **[preencher com o tempo cronometrado]**.
+Tempo total de desenvolvimento: **6 horas**.
 
 Para publicar na Vercel, configure `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` como variaveis de ambiente privadas, aplique `db/schema.sql` no projeto Supabase e execute a validacao manual descrita em `docs/03-operacao/TESTE-MCP-CLAUDE.md`.
 
 ### Ativar o leitor de observações
 
-As chaves rodam somente no servidor e nunca vão para o navegador, CSV, MCP ou Git. Com `LEITOR_IA=on`, a ordem é Gemini, OpenRouter e Groq. Configure as chaves disponíveis como Secrets na Vercel; `OPENROUTER_MODEL` pode usar `openrouter/free` ou um modelo gratuito atual do catálogo. O leitor mascara CPF, telefone e e-mail antes do envio, usa temperatura zero, resposta JSON validada por Zod e retry; qualquer falha vira `nao_lida` e não altera a decisão determinística.
+As chaves rodam somente no servidor e nunca vão para o navegador, CSV, MCP ou Git. Com `LEITOR_IA=on`, a ordem é Gemini, OpenRouter e Groq. Configure as chaves disponíveis como Secrets na Vercel. No Groq, `GROQ_API_KEY`, `GROQ_API_KEY2` e `GROQ_API_KEY3` são tentadas em ordem: uma chave recusada (401, 403 ou 429) passa para a próxima, e a ausência de chave ou de `GROQ_MODEL` apenas tira o Groq da cascata. `OPENROUTER_MODEL` pode usar `openrouter/free` ou um modelo gratuito atual do catálogo. O leitor mascara CPF, telefone e e-mail antes do envio, usa temperatura zero, resposta JSON validada por Zod e retry; qualquer falha vira `nao_lida` e não altera a decisão determinística.
 
 O contrato da resposta e estrito:
 
@@ -403,13 +404,21 @@ No lote, no maximo dois trabalhos rodam em paralelo e a etapa possui orçamento 
 
 ## Estado do MCP
 
-O endpoint MCP e o Skill estao implementados e documentados, mas esta parte permanece **parcial para a entrega final**. `consultar_regra`, `verificar_guia` e `consultar_pendencias` existem e estao cobertos pelos testes basicos de inicializacao e listagem de ferramentas.
+O endpoint MCP e o Skill estao **completos e validados**. As tres ferramentas foram chamadas no endpoint publicado (`https://vitalis-ei.vercel.app/api/mcp`) por um cliente MCP externo (Claude Code), autenticado por Bearer token, em 30/09/2026:
 
-Limitacao conhecida: `verificar_guia` recebe os campos completos da guia e nao busca automaticamente uma guia persistida apenas pelo numero. Para consultar uma guia ja carregada por ID, use `consultar_pendencias`. A validacao final do MCP com um cliente externo e o smoke test de producao ainda ficam pendentes.
+| Ferramenta | Chamada de validacao | Resultado |
+| --- | --- | --- |
+| `consultar_pendencias` | Todas as guias, todos os responsaveis | 39 guias pendentes, sem paciente, carteirinha, CID ou observacao |
+| `consultar_regra` | Plano Bem, procedimento `20103301` | Regras do convenio, prazo, limites e a observacao de que consulta e faturada como particular |
+| `verificar_guia` | Guia ficticia de consulta ortopedica no Plano Bem | `PENDENTE` com `PROCEDIMENTO_NAO_COBERTO`, acao e responsavel `gestao` |
+
+Alem disso, os testes automatizados cobrem a inicializacao e a listagem das ferramentas. O MCP e assistivo: consulta e explica, mas nao fecha pendencias nem altera resultado.
+
+Limitacao conhecida: `verificar_guia` recebe os campos completos da guia e nao busca automaticamente uma guia persistida apenas pelo numero. Para consultar uma guia ja carregada por ID, use `consultar_pendencias`.
 
 ## Como testei
 
-- `npm.cmd test`: 33 testes passando em 10 arquivos.
+- `npm.cmd test`: 38 testes passando em 10 arquivos.
 - `npm.cmd run typecheck`: passando.
 - `npm.cmd run build`: passando.
 - Golden: 80 guias, 41 OK, 39 pendentes, R$ 2.664,00 em risco.
