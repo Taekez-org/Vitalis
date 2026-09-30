@@ -365,6 +365,8 @@ Para publicar na Vercel, configure `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` 
 
 As chaves rodam somente no servidor e nunca vão para o navegador, CSV, MCP ou Git. Com `LEITOR_IA=on`, a ordem é Gemini, OpenRouter e Groq. Configure as chaves disponíveis como Secrets na Vercel. No Groq, `GROQ_API_KEY`, `GROQ_API_KEY2` e `GROQ_API_KEY3` são tentadas em ordem: uma chave recusada (401, 403 ou 429) passa para a próxima, e a ausência de chave ou de `GROQ_MODEL` apenas tira o Groq da cascata. `OPENROUTER_MODEL` pode usar `openrouter/free` ou um modelo gratuito atual do catálogo. O leitor mascara CPF, telefone e e-mail antes do envio, usa temperatura zero, resposta JSON validada por Zod e retry; qualquer falha vira `nao_lida` e não altera a decisão determinística.
 
+Para conferir manualmente as chaves e o modelo do Groq depois de uma troca, rode `node scripts/testar-groq.mjs` com `GROQ_API_KEY`, `GROQ_API_KEY2`, `GROQ_API_KEY3` e `GROQ_MODEL` definidos no seu terminal. Ele imprime apenas o status HTTP de cada chave, nunca a chave, e diferencia chave invalida (401), limite de uso (429) e modelo inexistente (404).
+
 O contrato da resposta e estrito:
 
 ```json
@@ -418,7 +420,7 @@ Limitacao conhecida: `verificar_guia` recebe os campos completos da guia e nao b
 
 ## Como testei
 
-- `npm.cmd test`: 44 testes passando em 10 arquivos.
+- `npm.cmd test`: 46 testes passando em 10 arquivos.
 - `npm.cmd run typecheck`: passando.
 - `npm.cmd run build`: passando.
 - Golden: 80 guias, 41 OK, 39 pendentes, R$ 2.664,00 em risco.

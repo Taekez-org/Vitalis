@@ -260,7 +260,7 @@ npm.cmd run build
 
 Estado atual:
 
-- 44 testes passando em 10 arquivos.
+- 46 testes passando em 10 arquivos.
 - Typecheck passando.
 - ESLint passando.
 - Build passando.

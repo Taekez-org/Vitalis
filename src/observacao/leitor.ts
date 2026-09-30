@@ -21,20 +21,21 @@ export class GroqObservationReader implements ObservationReader {
   async read(observation: string, context: ObservationContext): Promise<ObservationReading> {
     const config = groqConfig();
     if (!config) throw new Error("GROQ_CONFIGURACAO_AUSENTE");
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-    try {
-      const body = JSON.stringify({
-        model: config.model,
-        temperature: 0,
-        max_tokens: 200,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: observationSystemPrompt },
-          { role: "user", content: userPrompt(mascararObservacao(observation), context) },
-        ],
-      });
-      for (const [index, apiKey] of config.apiKeys.entries()) {
+    const body = JSON.stringify({
+      model: config.model,
+      temperature: 0,
+      max_tokens: 200,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: observationSystemPrompt },
+        { role: "user", content: userPrompt(mascararObservacao(observation), context) },
+      ],
+    });
+    for (const [index, apiKey] of config.apiKeys.entries()) {
+      // Cada chave tem o proprio limite de tempo; uma chave lenta nao consome o prazo das seguintes.
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      try {
         const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
           signal: controller.signal,
@@ -49,11 +50,11 @@ export class GroqObservationReader implements ObservationReader {
         const content = payload.choices?.[0]?.message?.content;
         if (!content) throw new Error("GROQ_RESPOSTA_VAZIA");
         return parseObservationReading(JSON.parse(content));
+      } finally {
+        clearTimeout(timer);
       }
-      throw new Error("GROQ_CONFIGURACAO_AUSENTE");
-    } finally {
-      clearTimeout(timer);
     }
+    throw new Error("GROQ_CONFIGURACAO_AUSENTE");
   }
 }
 
