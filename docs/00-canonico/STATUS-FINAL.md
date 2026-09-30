@@ -229,7 +229,7 @@ O MCP e HTTP e autenticado por `Authorization: Bearer <MCP_AUTH_TOKEN>`.
 Ferramentas:
 
 - `consultar_regra`: consulta convenio, procedimento, cobertura, limites e prazo.
-- `verificar_guia`: verifica uma guia com os campos estruturados recebidos.
+- `verificar_guia`: verifica uma guia com os campos estruturados recebidos. Se receber somente o numero da guia, nao verifica: orienta a enviar os campos completos ou usar `consultar_pendencias`.
 - `consultar_pendencias`: consulta a fila operacional persistida, sem alterar tratamentos.
 
 As tres ferramentas respondem **somente em texto amigavel em portugues**, pensado para a recepcao: nunca devolvem JSON nem bloco estruturado ao cliente. `consultar_regra` diz se o procedimento e coberto e resume as regras do convenio; `verificar_guia` diz se a guia pode seguir ou precisa de acao, com motivo, como resolver e quem resolve; `consultar_pendencias` entrega a lista ou o detalhe pronto para leitura.

@@ -1,11 +1,11 @@
 import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
-import { consultarPendencias, consultarRegra, verificarGuia, guideInput, pendenciasInput } from "../../../mcp/ferramentas";
-import { formatarRegra, formatarVerificacao } from "../../../mcp/formatar";
+import { consultarPendencias, consultarRegra, verificarGuiaTexto, guideInput, pendenciasInput } from "../../../mcp/ferramentas";
+import { formatarRegra } from "../../../mcp/formatar";
 
 const handler = createMcpHandler((server) => {
   server.registerTool("consultar_regra", { title: "Consultar regra", description: "Consulta a cobertura e os limites de um convenio para um procedimento. Responde em texto para a recepcao.", inputSchema: z.object({ convenio: z.string(), procedimento_codigo: z.string() }) }, async (input) => safeTool(() => formatarRegra(consultarRegra(input))));
-  server.registerTool("verificar_guia", { title: "Verificar guia", description: "Verifica uma guia e explica em texto se ela pode seguir ou precisa de acao, com motivo, correcao e responsavel.", inputSchema: guideInput }, async (input) => safeTool(() => formatarVerificacao(verificarGuia(input))));
+  server.registerTool("verificar_guia", { title: "Verificar guia", description: "Verifica uma guia e explica em texto se ela pode seguir ou precisa de acao, com motivo, correcao e responsavel.", inputSchema: guideInput }, async (input) => safeTool(() => verificarGuiaTexto(input)));
   server.registerTool("consultar_pendencias", { title: "Consultar pendencias", description: "Lista, em texto, as guias que precisam de ajuste ou mostra o detalhe de uma guia, sem dados pessoais.", inputSchema: pendenciasInput }, async (input) => { try { const result = await consultarPendencias(input); return { content: [{ type: "text" as const, text: result.texto }] }; } catch (error) { return toolError(error); } });
 }, { serverInfo: { name: "verificador-guias-vitalis", version: "4.0.0" }, capabilities: { tools: {} } });
 

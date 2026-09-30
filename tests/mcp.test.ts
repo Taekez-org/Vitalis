@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { consultarPendencias, consultarRegra, verificarGuia } from "../src/mcp/ferramentas";
+import { consultarPendencias, consultarRegra, verificarGuia, verificarGuiaTexto } from "../src/mcp/ferramentas";
 import { formatarRegra, formatarVerificacao } from "../src/mcp/formatar";
 import { POST as mcpPost } from "../src/app/api/mcp/route";
 import { carregarDemo } from "./helpers/demo";
@@ -46,6 +46,16 @@ describe("MCP responde em texto amigável", () => {
     const text = formatarVerificacao(verificarGuia({ ...guiaNaoCoberta, id_guia: "G-TESTE-2", convenio: "Saúde Interior", procedimento_codigo: "50000470", procedimento_descricao: "Sessão de fisioterapia musculoesquelética", valor: "62", autorizacao_validade: "2026-09-10", autorizacao_sessoes_limite: "20" }));
     expect(text).toContain("G-TESTE-2");
     expect(text).toContain("pode seguir");
+  });
+
+  it("orienta em vez de inventar erros quando recebe só o número da guia", async () => {
+    const text = verificarGuiaTexto({ id_guia: "G-2608-0006" });
+    expect(text).toContain("G-2608-0006");
+    expect(text).toContain("consultar_pendencias");
+    expect(text).not.toContain("DADO_ILEGIVEL");
+    expect(text).not.toContain("CONVENIO_DESCONHECIDO");
+    expect(verificarGuiaTexto(guiaNaoCoberta)).toContain("PROCEDIMENTO_NAO_COBERTO");
+    expect(verificarGuiaTexto({ id_guia: "G-X", convenio: "Vitalcard" })).not.toContain("consultar_pendencias");
   });
 
   it("a rota MCP devolve somente texto, sem bloco estruturado nem JSON", async () => {

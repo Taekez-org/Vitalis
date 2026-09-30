@@ -2,7 +2,7 @@ import { z } from "zod";
 import { verify } from "../core/verify";
 import { normalizeAgreement, procedureByCode } from "../core/rules";
 import type { Guia } from "../core/types";
-import { formatarDetalhe, formatarLista } from "./formatar";
+import { formatarDetalhe, formatarLista, formatarVerificacao } from "./formatar";
 import { listarPendencias } from "../servico/pendencias";
 import { hojeEmSaoPaulo } from "../infra/relogio";
 import { productionDatabaseUnavailable } from "../infra/supabase";
@@ -35,6 +35,15 @@ export function verificarGuia(input: unknown) {
   const args = guideInput.parse(input);
   const guide = { ...args } as Guia;
   return verify(guide, { modo: args.modo, data_referencia: args.data_referencia.trim() || hojeEmSaoPaulo() });
+}
+
+export function verificarGuiaTexto(input: unknown): string {
+  const args = guideInput.parse(input);
+  const { id_guia, modo: _modo, data_referencia: _referencia, ...campos } = args;
+  if (Object.values(campos).every((value) => !value.trim())) {
+    return `Guia ${id_guia.trim()}: não consegui verificar, porque recebi só o número. Envie os campos completos da guia. Para uma guia já carregada, use consultar_pendencias com esse número.`;
+  }
+  return formatarVerificacao(verificarGuia(args));
 }
 
 export function consultarRegra(input: unknown) {
