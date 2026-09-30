@@ -28,20 +28,20 @@ export async function consultarPendencias(input: unknown) {
 }
 
 export const guideInput = z.object({
-  id_guia: z.string(), unidade: z.string().default(""), data_atendimento: z.string().default(""), paciente: z.string().default(""), convenio: z.string().default(""), carteirinha: z.string().default(""), cid: z.string().default(""), procedimento_codigo: z.string().default(""), procedimento_descricao: z.string().default(""), numero_autorizacao: z.string().default(""), autorizacao_validade: z.string().default(""), autorizacao_sessoes_limite: z.string().default(""), sessao_numero_na_autorizacao: z.string().default(""), profissional: z.string().default(""), profissional_registro: z.string().default(""), valor: z.string().default(""), observacao_recepcao: z.string().default(""), data_lancamento: z.string().default(""), data_referencia: z.string().default(hojeEmSaoPaulo()), modo: z.enum(["lancamento", "lote", "antes_da_sessao"]).default("lote"),
+  id_guia: z.string(), unidade: z.string().default(""), data_atendimento: z.string().default(""), paciente: z.string().default(""), convenio: z.string().default(""), carteirinha: z.string().default(""), cid: z.string().default(""), procedimento_codigo: z.string().default(""), procedimento_descricao: z.string().default(""), numero_autorizacao: z.string().default(""), autorizacao_validade: z.string().default(""), autorizacao_sessoes_limite: z.string().default(""), sessao_numero_na_autorizacao: z.string().default(""), profissional: z.string().default(""), profissional_registro: z.string().default(""), valor: z.string().default(""), observacao_recepcao: z.string().default(""), data_lancamento: z.string().default(""), data_referencia: z.string().default(""), modo: z.enum(["lancamento", "lote", "antes_da_sessao"]).default("lote"),
 });
 
 export function verificarGuia(input: unknown) {
   const args = guideInput.parse(input);
   const guide = { ...args } as Guia;
-  return verify(guide, { modo: args.modo, data_referencia: args.data_referencia });
+  return verify(guide, { modo: args.modo, data_referencia: args.data_referencia.trim() || hojeEmSaoPaulo() });
 }
 
 export function consultarRegra(input: unknown) {
   const args = z.object({ convenio: z.string(), procedimento_codigo: z.string() }).parse(input);
   const agreement = normalizeAgreement(args.convenio);
   const procedure = procedureByCode(args.procedimento_codigo);
-  return { convenio: agreement ? { nome: agreement.nome, campos_obrigatorios: agreement.campos_obrigatorios, validade_maxima_autorizacao_dias: agreement.validade_maxima_autorizacao_dias, limite_sessoes_por_autorizacao: agreement.limite_sessoes_por_autorizacao, prazo_envio_dias: agreement.prazo_envio_dias, observacao: agreement.observacao } : null, procedimento: procedure ?? null };
+  return { cobertura: agreement && procedure ? agreement.procedimentos_cobertos.includes(procedure.codigo) : null, convenio: agreement ? { nome: agreement.nome, campos_obrigatorios: agreement.campos_obrigatorios, validade_maxima_autorizacao_dias: agreement.validade_maxima_autorizacao_dias, limite_sessoes_por_autorizacao: agreement.limite_sessoes_por_autorizacao, prazo_envio_dias: agreement.prazo_envio_dias, observacao: agreement.observacao } : null, procedimento: procedure ?? null };
 }
 
 function publicItem(item: Awaited<ReturnType<typeof listarPendencias>>["itens"][number]) {

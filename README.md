@@ -412,13 +412,13 @@ O endpoint MCP e o Skill estao **completos e validados**. As tres ferramentas fo
 | `consultar_regra` | Plano Bem, procedimento `20103301` | Regras do convenio, prazo, limites e a observacao de que consulta e faturada como particular |
 | `verificar_guia` | Guia ficticia de consulta ortopedica no Plano Bem | `PENDENTE` com `PROCEDIMENTO_NAO_COBERTO`, acao e responsavel `gestao` |
 
-Alem disso, os testes automatizados cobrem a inicializacao e a listagem das ferramentas. O MCP e assistivo: consulta e explica, mas nao fecha pendencias nem altera resultado.
+As tres ferramentas respondem **em texto amigavel, nunca em JSON**: o cliente recebe frases prontas para a recepcao, com motivo, como resolver e quem resolve. Os testes automatizados cobrem esse formato na rota MCP, alem da inicializacao e da listagem das ferramentas. O MCP e assistivo: consulta e explica, mas nao fecha pendencias nem altera resultado.
 
 Limitacao conhecida: `verificar_guia` recebe os campos completos da guia e nao busca automaticamente uma guia persistida apenas pelo numero. Para consultar uma guia ja carregada por ID, use `consultar_pendencias`.
 
 ## Como testei
 
-- `npm.cmd test`: 38 testes passando em 10 arquivos.
+- `npm.cmd test`: 44 testes passando em 10 arquivos.
 - `npm.cmd run typecheck`: passando.
 - `npm.cmd run build`: passando.
 - Golden: 80 guias, 41 OK, 39 pendentes, R$ 2.664,00 em risco.

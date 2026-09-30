@@ -232,6 +232,8 @@ Ferramentas:
 - `verificar_guia`: verifica uma guia com os campos estruturados recebidos.
 - `consultar_pendencias`: consulta a fila operacional persistida, sem alterar tratamentos.
 
+As tres ferramentas respondem **somente em texto amigavel em portugues**, pensado para a recepcao: nunca devolvem JSON nem bloco estruturado ao cliente. `consultar_regra` diz se o procedimento e coberto e resume as regras do convenio; `verificar_guia` diz se a guia pode seguir ou precisa de acao, com motivo, como resolver e quem resolve; `consultar_pendencias` entrega a lista ou o detalhe pronto para leitura.
+
 O MCP nao recebe service role e nao chama o leitor de IA em tempo real.
 
 A Skill esta em `skills/conferir-guia/SKILL.md`. Ela ajuda a extrair campos e explicar resultados, mas nao inventa dados nem recomenda alterar datas para obter aprovacao.
@@ -258,7 +260,7 @@ npm.cmd run build
 
 Estado atual:
 
-- 38 testes passando em 10 arquivos.
+- 44 testes passando em 10 arquivos.
 - Typecheck passando.
 - ESLint passando.
 - Build passando.
